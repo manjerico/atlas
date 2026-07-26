@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas · Silves — Protótipo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c2b26;
+    --paper:#f7f4ec;
+    --paper-2:#efe9d8;
+    --map-bg:#e9e5d6;
+    --teal:#2f6f62;
+    --teal-dark:#1f4d43;
+    --clay:#b5602f;
+    --ok:#3d7a4f;
+    --muted:#6b6a5f;
+    --border:#d9d3c2;
+    --font-display:'Source Serif 4', Georgia, serif;
+    --font-body:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{font-family:var(--font-body); color:var(--ink); background:var(--paper);}
+  .app{display:flex; flex-direction:column; height:100vh;}
+  header{
+    display:flex; align-items:baseline; gap:14px; padding:14px 22px;
+    background:var(--teal-dark); color:var(--paper);
+    border-bottom:3px solid var(--clay); flex-shrink:0;
+  }
+  header h1{font-family:var(--font-display); font-size:1.35rem; font-weight:700; margin:0; letter-spacing:0.2px;}
+  header .tag{
+    font-family:var(--font-mono); font-size:0.72rem; color:#d9cfae;
+    border:1px solid #4a7a6e; border-radius:3px; padding:2px 7px;
+    text-transform:uppercase; letter-spacing:0.06em;
+  }
+  header .spacer{flex:1;}
+  header .subtitle{font-size:0.8rem; color:#cfe3dc; font-style:italic;}
+  main{flex:1; display:flex; min-height:0;}
+  #map{flex:1 1 60%; background:var(--map-bg); min-width:0;}
+  #panel{
+    flex:1 1 40%; max-width:460px; min-width:320px; overflow-y:auto;
+    background:var(--paper); border-left:1px solid var(--border); padding:20px;
+  }
+  .hint{
+    font-family:var(--font-body); color:var(--muted); font-size:0.92rem; line-height:1.55;
+    padding:18px; border:1px dashed var(--border); border-radius:6px; background:var(--paper-2);
+  }
+  .hint strong{color:var(--ink);}
+  .dossier-header{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    font-family:var(--font-mono); font-size:0.72rem; color:var(--muted);
+    border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:16px;
+  }
+  .dossier-header .ref{color:var(--ink); font-weight:500;}
+  .engine-card{border:1px solid var(--border); border-radius:8px; margin-bottom:16px; background:#fff; overflow:hidden;}
+  .engine-card.locked{background:var(--paper-2); opacity:0.72;}
+  .engine-card .card-head{
+    display:flex; align-items:center; gap:10px; padding:12px 14px;
+    background:var(--paper-2); border-bottom:1px solid var(--border);
+  }
+  .engine-card.locked .card-head{background:transparent;}
+  .engine-card .card-head h3{font-family:var(--font-display); font-size:1rem; margin:0; flex:1;}
+  .badge{
+    font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:3px 8px; border-radius:20px; border:1px solid currentColor;
+  }
+  .badge.locked{color:var(--muted);}
+  .stamp{
+    width:52px;height:52px;flex-shrink:0; border-radius:50%; border:2px dashed currentColor;
+    display:flex;align-items:center;justify-content:center; font-family:var(--font-mono);
+    font-size:0.62rem; font-weight:600; text-transform:uppercase; text-align:center;
+    line-height:1.1; transform:rotate(-8deg);
+  }
+  .stamp.alta{color:var(--ok);}
+  .stamp.media{color:var(--clay);}
+  .stamp.baixa{color:#a33;}
+  .card-body{padding:14px;}
+  .conclusion{font-family:var(--font-display); font-size:1.05rem; line-height:1.4; margin:0 0 10px 0;}
+  .field-row{display:flex; gap:8px; font-size:0.85rem; margin-bottom:6px;}
+  .field-row .k{color:var(--muted); min-width:150px; flex-shrink:0;}
+  .field-row .v{color:var(--ink);}
+  .sub-heading{font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted); margin:12px 0 6px 0;}
+  ul.plain{margin:6px 0; padding-left:18px; font-size:0.85rem;}
+  ul.plain li{margin-bottom:3px;}
+  details{margin-top:10px; font-size:0.82rem; border-top:1px solid var(--border); padding-top:8px;}
+  summary{cursor:pointer; color:var(--teal-dark); font-weight:500;}
+  table.evidence{width:100%; border-collapse:collapse; margin-top:8px; font-family:var(--font-mono); font-size:0.72rem;}
+  table.evidence th, table.evidence td{text-align:left; padding:4px 6px; border-bottom:1px solid var(--border);}
+  .limitations{margin-top:10px; font-size:0.78rem; color:var(--muted); font-style:italic; line-height:1.4;}
+  .locked-note{padding:14px; font-size:0.85rem; color:var(--muted);}
+  .loading{font-family:var(--font-mono); font-size:0.85rem; color:var(--muted); padding:20px;}
+  .error-box{
+    border:1px solid #c66; background:#fdf2f0; color:#7a2c1f; padding:12px 14px;
+    border-radius:6px; font-size:0.85rem; margin-bottom:16px; line-height:1.5;
+  }
+  .leaflet-popup-content{font-family:var(--font-body); font-size:0.85rem;}
+
+  .map-legend{
+    background:var(--paper); border:1px solid var(--border); border-radius:6px;
+    padding:10px 12px; font-family:var(--font-body); font-size:0.78rem;
+    box-shadow:0 1px 4px rgba(0,0,0,0.15); min-width:180px;
+  }
+  .map-legend label{display:flex; align-items:center; gap:6px; font-weight:600; margin-bottom:8px; cursor:pointer;}
+  .map-legend .swatch{display:flex; align-items:center; gap:6px; margin-bottom:4px;}
+  .map-legend .swatch-color{width:14px; height:14px; border-radius:2px; flex-shrink:0; border:1px solid rgba(0,0,0,0.25);}
+  .map-legend .nota{color:var(--muted); font-style:italic; margin-top:6px; font-size:0.72rem; line-height:1.3;}
+
+  .charca-btn{
+    font-family:var(--font-body); font-size:0.8rem; font-weight:600;
+    background:var(--teal); color:#fff; border:none; border-radius:5px;
+    padding:8px 12px; cursor:pointer;
+  }
+  .charca-btn:hover{background:var(--teal-dark);}
+  .charca-btn.ativo{background:var(--clay);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Atlas</h1>
+    <span class="tag">protótipo · Silves</span>
+    <span class="spacer"></span>
+    <span class="subtitle">clica no mapa para analisar um local</span>
+  </header>
+  <main>
+    <div id="map"></div>
+    <div id="panel">
+      <div class="hint">
+        <strong>Como funciona:</strong> dá zoom até veres os limites das parcelas
+        e clica dentro de uma. O Atlas consulta agora o <strong>backend próprio</strong>
+        (que por sua vez fala com o SIG de Silves e com o PVGIS/EU-DEM) e devolve a
+        análise dos motores <strong>Jurídico</strong>, <strong>Energético</strong>,
+        <strong>Agronómico</strong> e <strong>Hídrico</strong> — o Ambiental aparece
+        já na estrutura, mas ainda não está implementado.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/esri-leaflet/3.1.0/esri-leaflet.min.js"></script>
+<script>
+  // Camadas visuais (decorativas, direto do browser -- não são o motor
+  // jurídico a decidir nada, são só o mesmo desenho que o SIG oficial usa).
+  const CADASTRO_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/CadastroDGTwfs/MapServer";
+  const CADASTRO_PREDIO_LAYER_ID = 2;
+  const PDM_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer";
+  const RAN_LAYER_ID = 406;
+  const REN_LAYER_ID = 399;
+
+  const map = L.map('map', { zoomControl: true }).setView([37.19, -8.44], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 18
+  }).addTo(map);
+
+  const CADASTRO_MIN_ZOOM = 15;
+  let cadastroLayer = null;
+  function atualizarCamadaCadastral() {
+    const zoomAtual = map.getZoom();
+    if (zoomAtual >= CADASTRO_MIN_ZOOM) {
+      if (!cadastroLayer) {
+        cadastroLayer = L.esri.dynamicMapLayer({
+          url: CADASTRO_URL, layers: [CADASTRO_PREDIO_LAYER_ID], opacity: 0.75
+        }).addTo(map);
+      }
+    } else if (cadastroLayer) {
+      map.removeLayer(cadastroLayer);
+      cadastroLayer = null;
+    }
+  }
+  map.on('zoomend', atualizarCamadaCadastral);
+  atualizarCamadaCadastral();
+
+  // Camada de condicionantes (RAN/REN) -- desenhada pelo próprio servidor,
+  // com as cores oficiais que o SIG de Silves já usa. Começa ligada por
+  // omissão, com opção de desligar (fica pesada em zooms muito afastados).
+  let ranRenLayer = null;
+  function atualizarCamadaRanRen(visivel) {
+    if (visivel) {
+      if (!ranRenLayer) {
+        ranRenLayer = L.esri.dynamicMapLayer({
+          url: PDM_URL, layers: [RAN_LAYER_ID, REN_LAYER_ID], opacity: 0.55
+        }).addTo(map);
+      }
+    } else if (ranRenLayer) {
+      map.removeLayer(ranRenLayer);
+      ranRenLayer = null;
+    }
+  }
+  atualizarCamadaRanRen(true);
+
+  // Controlo + legenda, canto superior direito
+  const LegendaControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function () {
+      const div = L.DomUtil.create('div', 'map-legend');
+      div.innerHTML = `
+        <label><input type="checkbox" id="toggle-ran-ren" checked> Mostrar RAN / REN</label>
+        <div class="swatch"><span class="swatch-color" style="background:rgb(56,168,0);"></span> RAN (Reserva Agrícola Nacional)</div>
+        <div class="swatch"><span class="swatch-color" style="background:rgb(171,205,102);"></span> REN (Reserva Ecológica Nacional)</div>
+        <div class="nota">Cores tal como definidas pelo SIG oficial de Silves. RAN aparece com padrão hachurado no mapa.</div>
+      `;
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    }
+  });
+  map.addControl(new LegendaControl());
+  document.getElementById('toggle-ran-ren').addEventListener('change', (e) => {
+    atualizarCamadaRanRen(e.target.checked);
+  });
+
+  // ----- Modo Charca (barragem/represa) -----
+  let charcaModoAtivo = false;
+  let charcaAutoModoAtivo = false;
+  let terraplanagemModoAtivo = false;
+  let terraplanagemPontos = [];
+  let terraplanagemLayers = [];
+  let terraplanagemOverlay = null;
+  let charcaPontos = [];   // até 3 pontos: [barreira1, barreira2, montante]
+  let charcaLayers = [];   // marcadores/linha desenhados no mapa, para limpar depois
+  let mancheOverlay = null; // imagem da área inundada, desenhada por cima do mapa
+
+  const CharcaControl = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd: function () {
+      const div = L.DomUtil.create('div', 'map-legend');
+      div.innerHTML = `
+        <button id="btn-charca" class="charca-btn">💧 Calcular charca (manual)</button>
+        <button id="btn-charca-auto" class="charca-btn" style="margin-top:6px;">🔍 Detetar bacia natural</button>
+        <button id="btn-terraplanagem" class="charca-btn" style="margin-top:6px;">⛏️ Calcular terraplanagem</button>
+      `;
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    }
+  });
+  map.addControl(new CharcaControl());
+
+  function limparCharca() {
+    charcaLayers.forEach(l => map.removeLayer(l));
+    charcaLayers = [];
+    charcaPontos = [];
+    mancheOverlay = null;
+  }
+
+  document.getElementById('btn-charca').addEventListener('click', () => {
+    charcaAutoModoAtivo = false;
+    document.getElementById('btn-charca-auto').textContent = '🔍 Detetar bacia natural';
+    document.getElementById('btn-charca-auto').classList.remove('ativo');
+    terraplanagemModoAtivo = false;
+    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
+    document.getElementById('btn-terraplanagem').classList.remove('ativo');
+    limparTerraplanagem();
+    charcaModoAtivo = !charcaModoAtivo;
+    limparCharca();
+    const btn = document.getElementById('btn-charca');
+    if (charcaModoAtivo) {
+      btn.textContent = '✕ Sair do modo charca';
+      btn.classList.add('ativo');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      renderCharcaInstrucoes();
+    } else {
+      btn.textContent = '💧 Calcular charca (manual)';
+      btn.classList.remove('ativo');
+      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
+    }
+  });
+
+  document.getElementById('btn-charca-auto').addEventListener('click', () => {
+    charcaModoAtivo = false;
+    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
+    document.getElementById('btn-charca').classList.remove('ativo');
+    terraplanagemModoAtivo = false;
+    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
+    document.getElementById('btn-terraplanagem').classList.remove('ativo');
+    limparTerraplanagem();
+    charcaAutoModoAtivo = !charcaAutoModoAtivo;
+    limparCharca();
+    const btn = document.getElementById('btn-charca-auto');
+    if (charcaAutoModoAtivo) {
+      btn.textContent = '✕ Sair da deteção automática';
+      btn.classList.add('ativo');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      panel.innerHTML = `<div class="hint"><strong>Deteção automática de bacia</strong><br>Clica dentro de um vale ou depressão do terreno. O motor cresce a partir desse ponto pela célula mais baixa disponível, e para sozinho quando a bacia natural termina.</div>`;
+    } else {
+      btn.textContent = '🔍 Detetar bacia natural';
+      btn.classList.remove('ativo');
+      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
+    }
+  });
+
+  document.getElementById('btn-terraplanagem').addEventListener('click', () => {
+    charcaModoAtivo = false;
+    charcaAutoModoAtivo = false;
+    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
+    document.getElementById('btn-charca').classList.remove('ativo');
+    document.getElementById('btn-charca-auto').textContent = '🔍 Detetar bacia natural';
+    document.getElementById('btn-charca-auto').classList.remove('ativo');
+    limparCharca();
+
+    terraplanagemModoAtivo = !terraplanagemModoAtivo;
+    limparTerraplanagem();
+    const btn = document.getElementById('btn-terraplanagem');
+    if (terraplanagemModoAtivo) {
+      btn.textContent = '✕ Sair do modo terraplanagem';
+      btn.classList.add('ativo');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      renderTerraplanagemInstrucoes();
+    } else {
+      btn.textContent = '⛏️ Calcular terraplanagem';
+      btn.classList.remove('ativo');
+      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
+    }
+  });
+
+  function limparTerraplanagem() {
+    terraplanagemLayers.forEach(l => map.removeLayer(l));
+    terraplanagemLayers = [];
+    terraplanagemPontos = [];
+    if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
+  }
+
+  function renderTerraplanagemInstrucoes() {
+    panel.innerHTML = `
+      <div class="hint">
+        <strong>Modo Terraplanagem — ${terraplanagemPontos.length} pontos definidos</strong><br>
+        Clica no mapa para marcar os cantos da área a nivelar (mínimo 3). Quando terminares, clica em "Fechar área e calcular".
+      </div>
+      ${terraplanagemPontos.length >= 3 ? '<button id="btn-fechar-terraplanagem" class="charca-btn">Fechar área e calcular</button>' : ''}
+    `;
+    if (terraplanagemPontos.length >= 3) {
+      document.getElementById('btn-fechar-terraplanagem').addEventListener('click', calcularTerraplanagem);
+    }
+  }
+
+  function handleCliqueTerraplanagem(lat, lng) {
+    terraplanagemPontos.push([lat, lng]);
+    const marcador = L.circleMarker([lat, lng], { radius: 6, color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.9 }).addTo(map);
+    terraplanagemLayers.push(marcador);
+    if (terraplanagemPontos.length > 1) {
+      if (terraplanagemLayers._poligono) map.removeLayer(terraplanagemLayers._poligono);
+    }
+    const poligonoLayer = L.polygon(terraplanagemPontos, { color: '#e67e22', fillOpacity: 0.1 }).addTo(map);
+    terraplanagemLayers.push(poligonoLayer);
+    renderTerraplanagemInstrucoes();
+  }
+
+  async function calcularTerraplanagem() {
+    panel.innerHTML = `<div class="loading">A calcular corte/aterro para a área definida…</div>`;
+    let data;
+    try {
+      data = await fetch('/api/motor-terraplanagem', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poligono: terraplanagemPontos }),
+      }).then(r => r.json());
+    } catch (e) {
+      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
+      return;
+    }
+
+    if (!data.answer) {
+      panel.innerHTML = `<div class="error-box">Não foi possível calcular: ${data.confidence ? data.confidence.reason : 'erro desconhecido'}</div>
+        <button id="btn-recomecar-terra" class="charca-btn">Recomeçar</button>`;
+      document.getElementById('btn-recomecar-terra').addEventListener('click', () => { limparTerraplanagem(); renderTerraplanagemInstrucoes(); });
+      return;
+    }
+
+    const a = data.answer;
+    if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
+    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
+      terraplanagemOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.8 }).addTo(map);
+      terraplanagemLayers.push(terraplanagemOverlay);
+    }
+
+    panel.innerHTML = `
+      <div class="engine-card">
+        <div class="card-head"><h3>Terraplanagem</h3><span class="badge">${data.confidence.label}</span></div>
+        <div class="card-body">
+          <p class="conclusion">Cota-alvo: ${a.cota_alvo_m} m</p>
+          <div class="field-row"><span class="k">Área total</span><span class="v">${a.area_total_ha} ha</span></div>
+          <div class="field-row"><span class="k">Volume a cortar</span><span class="v" style="color:#e67e22;">${a.volume_corte_m3.toLocaleString('pt-PT')} m³</span></div>
+          <div class="field-row"><span class="k">Volume a aterrar</span><span class="v" style="color:#2980b9;">${a.volume_aterro_m3.toLocaleString('pt-PT')} m³</span></div>
+          <div class="field-row"><span class="k">Saldo</span><span class="v">${a.saldo_m3.toLocaleString('pt-PT')} m³ ${a.saldo_m3 > 0 ? '(sobra terra)' : a.saldo_m3 < 0 ? '(falta terra)' : '(equilibrado)'}</span></div>
+          <p style="font-size:0.8rem; color:var(--muted); margin-top:10px;"><strong>Confiança:</strong> ${data.confidence.reason}</p>
+          <div class="limitations">${data.limitations.join(' ')}</div>
+        </div>
+      </div>
+      <button id="btn-nova-terra" class="charca-btn">Calcular outra área</button>
+    `;
+    document.getElementById('btn-nova-terra').addEventListener('click', () => {
+      limparTerraplanagem();
+      renderTerraplanagemInstrucoes();
+    });
+  }
+
+  async function handleCliqueCharcaAuto(lat, lng) {
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lng]).addTo(map);
+    panel.innerHTML = `<div class="loading">A crescer a bacia a partir deste ponto…</div>`;
+
+    let data;
+    try {
+      data = await fetch('/api/motor-charca-auto', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ponto: [lat, lng] }),
+      }).then(r => r.json());
+    } catch (e) {
+      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
+      return;
+    }
+
+    if (!data.answer) {
+      panel.innerHTML = `<div class="error-box">Não foi possível detetar uma bacia: ${data.confidence ? data.confidence.reason : 'erro desconhecido'}</div>`;
+      return;
+    }
+
+    const a = data.answer;
+    if (mancheOverlay) { map.removeLayer(mancheOverlay); mancheOverlay = null; }
+    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
+      mancheOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.85 }).addTo(map);
+      charcaLayers.push(mancheOverlay);
+    }
+
+    const linhasCurva = a.curva_nivel_area_volume.map(p =>
+      `<tr><td>${p.nivel_agua_m} m</td><td>${p.area_ha} ha</td><td>${p.volume_m3.toLocaleString('pt-PT')} m³</td></tr>`
+    ).join('');
+
+    panel.innerHTML = `
+      <div class="engine-card">
+        <div class="card-head"><h3>Bacia Natural Detetada</h3><span class="badge">${data.confidence.label}</span></div>
+        <div class="card-body">
+          <p class="conclusion">Nível máximo contido: ${a.nivel_maximo_contido_m} m</p>
+          <table class="evidence">
+            <tr><th>Nível de água</th><th>Área</th><th>Volume</th></tr>
+            ${linhasCurva}
+          </table>
+          <p style="font-size:0.8rem; color:var(--muted); margin-top:10px;"><strong>Confiança:</strong> ${data.confidence.reason}</p>
+          <div class="limitations">${data.limitations.join(' ')}</div>
+        </div>
+      </div>
+      <button id="btn-nova-bacia" class="charca-btn">Detetar noutro ponto</button>
+    `;
+    document.getElementById('btn-nova-bacia').addEventListener('click', () => {
+      panel.innerHTML = `<div class="hint"><strong>Deteção automática de bacia</strong><br>Clica dentro de um vale ou depressão do terreno.</div>`;
+    });
+  }
+
+
+  function renderCharcaInstrucoes() {
+    const passos = [
+      'Clica no mapa no <strong>primeiro ponto da barreira</strong> (numa margem do vale).',
+      'Clica no <strong>segundo ponto da barreira</strong> (a outra margem do vale, do outro lado).',
+      'Clica num <strong>ponto a montante</strong> (dentro do vale, onde a água se vai acumular).',
+    ];
+    panel.innerHTML = `
+      <div class="hint">
+        <strong>Modo Charca — passo ${charcaPontos.length + 1} de 3</strong><br>
+        ${passos[charcaPontos.length]}
+      </div>
+    `;
+  }
+
+  function handleCliqueCharca(lat, lng) {
+    charcaPontos.push([lat, lng]);
+    const cor = charcaPontos.length < 3 ? 'red' : 'blue';
+    const marcador = L.circleMarker([lat, lng], { radius: 7, color: cor, fillColor: cor, fillOpacity: 0.8 }).addTo(map);
+    charcaLayers.push(marcador);
+
+    if (charcaPontos.length === 2) {
+      const linha = L.polyline([charcaPontos[0], charcaPontos[1]], { color: 'red', weight: 3 }).addTo(map);
+      charcaLayers.push(linha);
+    }
+
+    if (charcaPontos.length < 3) {
+      renderCharcaInstrucoes();
+    } else {
+      renderCharcaFormulario();
+    }
+  }
+
+  function renderCharcaFormulario() {
+    panel.innerHTML = `
+      <div class="hint"><strong>Pontos definidos.</strong> Introduz a altura da barragem e calcula.</div>
+      <div class="engine-card">
+        <div class="card-head"><h3>Calcular Charca</h3></div>
+        <div class="card-body">
+          <div class="field-row">
+            <span class="k">Altura da barragem</span>
+            <span class="v"><input type="number" id="input-altura" value="3" min="0.5" step="0.5" style="width:70px;"> metros</span>
+          </div>
+          <button id="btn-calcular-charca" class="charca-btn" style="margin-top:10px;">Calcular</button>
+          <button id="btn-recomecar-charca" class="charca-btn" style="margin-top:10px; margin-left:8px; background:var(--muted);">Recomeçar pontos</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-calcular-charca').addEventListener('click', calcularCharca);
+    document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
+      limparCharca();
+      renderCharcaInstrucoes();
+    });
+  }
+
+  async function calcularCharca() {
+    const altura = parseFloat(document.getElementById('input-altura').value) || 3.0;
+    panel.innerHTML = `<div class="loading">A calcular volume da charca (MDT LiDAR 2m)…</div>`;
+    try {
+      const resp = await fetch('/api/motor-charca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          barreira: [charcaPontos[0], charcaPontos[1]],
+          montante: charcaPontos[2],
+          altura: altura,
+        }),
+      });
+      const data = await resp.json();
+      renderCharcaResultado(data);
+    } catch (err) {
+      panel.innerHTML = `<div class="error-box">Erro ao calcular: ${err}</div>
+        <button id="btn-recomecar-charca" class="charca-btn">Recomeçar pontos</button>`;
+      document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
+        limparCharca(); renderCharcaInstrucoes();
+      });
+    }
+  }
+
+  function renderCharcaResultado(data) {
+    if (!data.answer) {
+      panel.innerHTML = `
+        <div class="error-box">${data.confidence ? data.confidence.reason : (data.erro || 'Erro desconhecido')}</div>
+        <button id="btn-recomecar-charca" class="charca-btn">Recomeçar pontos</button>
+      `;
+      document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
+        limparCharca(); renderCharcaInstrucoes();
+      });
+      return;
+    }
+    const a = data.answer;
+    const confClass = confClassFromLabel(data.confidence.label);
+
+    // Desenhar a mancha da área inundada, se o backend a devolveu
+    if (mancheOverlay) { map.removeLayer(mancheOverlay); mancheOverlay = null; }
+    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
+      mancheOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.85 }).addTo(map);
+      charcaLayers.push(mancheOverlay);  // é removida da próxima vez que limparCharca() correr
+    }
+
+    panel.innerHTML = `
+      <div class="engine-card">
+        <div class="card-head"><h3>Motor Charca</h3><span class="badge">implementado</span></div>
+        <div class="card-body" style="display:flex; gap:12px;">
+          <div class="stamp ${confClass}">${data.confidence.label}<br>confiança</div>
+          <div style="flex:1;">
+            <p class="conclusion">${a.volume_m3.toLocaleString('pt-PT')} m³ represados</p>
+            <div class="field-row"><span class="k">Área inundada</span><span class="v">${a.area_inundada_ha} ha</span></div>
+            <div class="field-row"><span class="k">Nível de água</span><span class="v">${a.nivel_agua_m} m</span></div>
+            <div class="field-row"><span class="k">Profundidade máxima</span><span class="v">${a.profundidade_maxima_m} m</span></div>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top:0;">
+          <div class="limitations">${data.limitations.join(' ')}</div>
+        </div>
+      </div>
+      <button id="btn-nova-charca" class="charca-btn">Calcular outra charca</button>
+    `;
+    document.getElementById('btn-nova-charca').addEventListener('click', () => {
+      limparCharca(); renderCharcaInstrucoes();
+    });
+  }
+
+  let marker = null;
+  const panel = document.getElementById('panel');
+
+  map.on('click', async (e) => {
+    const { lat, lng } = e.latlng;
+
+    if (charcaModoAtivo) {
+      handleCliqueCharca(lat, lng);
+      return;
+    }
+    if (charcaAutoModoAtivo) {
+      handleCliqueCharcaAuto(lat, lng);
+      return;
+    }
+    if (terraplanagemModoAtivo) {
+      handleCliqueTerraplanagem(lat, lng);
+      return;
+    }
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lng]).addTo(map);
+
+    renderLoading(lat, lng);
+
+    // Agora falamos só com o NOSSO backend -- ele é que sabe falar com
+    // Silves, com o PVGIS e com o EU-DEM. O browser já não precisa de
+    // conhecer nenhum desses serviços diretamente.
+    const [juridicoResult, solarResult, agricolaResult, hidricoResult] = await Promise.allSettled([
+      fetch(`/api/motor-juridico?lat=${lat}&lon=${lng}`).then(r => r.json()),
+      fetch(`/api/motor-solar?lat=${lat}&lon=${lng}`).then(r => r.json()),
+      fetch(`/api/motor-agricola?lat=${lat}&lon=${lng}`).then(r => r.json()),
+      fetch(`/api/motor-hidrico?lat=${lat}&lon=${lng}`).then(r => r.json()),
+    ]);
+
+    const juridico = juridicoResult.status === 'fulfilled' ? juridicoResult.value : { erro: String(juridicoResult.reason) };
+    const solar = solarResult.status === 'fulfilled' ? solarResult.value : { erro: String(solarResult.reason) };
+    const agricola = agricolaResult.status === 'fulfilled' ? agricolaResult.value : { erro: String(agricolaResult.reason) };
+    const hidrico = hidricoResult.status === 'fulfilled' ? hidricoResult.value : { erro: String(hidricoResult.reason) };
+
+    renderResults(lat, lng, juridico, solar, agricola, hidrico);
+  });
+
+  function renderLoading(lat, lon) {
+    panel.innerHTML = `
+      <div class="dossier-header">
+        <span>PROCESSO ${refNumber(lat, lon)}</span>
+        <span>${new Date().toLocaleString('pt-PT')}</span>
+      </div>
+      <div class="loading">A consultar o backend do Atlas (motor jurídico + motor energético)…</div>
+    `;
+  }
+
+  function confClassFromLabel(label) {
+    if (!label) return 'baixa';
+    const l = label.toLowerCase();
+    if (l.startsWith('alta')) return 'alta';
+    if (l.startsWith('média') || l.startsWith('media')) return 'media';
+    return 'baixa';
+  }
+
+  function renderResults(lat, lon, juridico, solar, agricola, hidrico) {
+    // --- Identidade da parcela ---
+    let identidadeHtml;
+    const ip = juridico && juridico.identidade_parcela;
+    if (ip) {
+      identidadeHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Identidade da Parcela</h3><span class="badge">cadastro DGT</span></div>
+          <div class="card-body">
+            <div class="field-row"><span class="k">Freguesia</span><span class="v">${ip.freguesia || '—'}</span></div>
+            <div class="field-row"><span class="k">Secção</span><span class="v">${ip.seccao || '—'}</span></div>
+            <div class="field-row"><span class="k">Prédio nº</span><span class="v">${ip.predio_no != null ? ip.predio_no : '—'}</span></div>
+            <div class="field-row"><span class="k">Área</span><span class="v">${ip.area_ha != null ? ip.area_ha + ' ha' : '—'}</span></div>
+          </div>
+        </div>`;
+    } else {
+      identidadeHtml = `
+        <div class="engine-card locked">
+          <div class="card-head"><h3>Identidade da Parcela</h3></div>
+          <div class="locked-note">Nenhum prédio cadastral encontrado neste ponto exato.</div>
+        </div>`;
+    }
+
+    // --- Motor Jurídico ---
+    let juridicoHtml;
+    if (juridico && juridico.answer) {
+      const confClass = confClassFromLabel(juridico.confidence.label);
+      const evidenceRows = (juridico.evidence || []).map(ev =>
+        `<tr><td>${ev.layer_id}</td><td>${ev.nome}</td><td>${ev.features_encontradas}</td></tr>`
+      ).join('');
+      juridicoHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Motor Jurídico</h3><span class="badge">implementado</span></div>
+          <div class="card-body" style="display:flex; gap:12px;">
+            <div class="stamp ${confClass}">${juridico.confidence.label}<br>confiança</div>
+            <div style="flex:1;">
+              <p class="conclusion">${juridico.answer.classificacao_solo}</p>
+              <div class="field-row"><span class="k">Condicionantes</span><span class="v">${juridico.answer.condicionantes_ativas.join(', ')}</span></div>
+              <div class="field-row"><span class="k">Riscos</span><span class="v">${juridico.answer.riscos_identificados.join(', ')}</span></div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:0;">
+            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Porquê esta confiança:</strong> ${juridico.confidence.reason}</p>
+            <details>
+              <summary>Ver evidência completa</summary>
+              <table class="evidence"><tr><th>ID</th><th>Camada</th><th>Nº features</th></tr>${evidenceRows}</table>
+            </details>
+            <div class="limitations">${juridico.limitations.join(' ')}</div>
+          </div>
+        </div>`;
+    } else {
+      juridicoHtml = `<div class="engine-card"><div class="card-head"><h3>Motor Jurídico</h3></div>
+        <div class="locked-note">Erro ao consultar: ${juridico && juridico.erro ? juridico.erro : 'desconhecido'}</div></div>`;
+    }
+
+    // --- Motor Energético ---
+    let solarHtml;
+    if (solar && solar.answer) {
+      const mc = solar.answer.melhor_caso;
+      const tr = solar.answer.terreno_real;
+      const confClass = confClassFromLabel(solar.confidence.label);
+      solarHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Motor Energético</h3><span class="badge">implementado</span></div>
+          <div class="card-body" style="display:flex; gap:12px;">
+            <div class="stamp ${confClass}">${mc.potencial}<br>potencial</div>
+            <div style="flex:1;">
+              <p class="conclusion">${mc.producao_especifica_kwh_por_kwp_ano} kWh/kWp/ano (melhor caso)</p>
+              <div class="field-row"><span class="k">Ângulo / orientação ótimos</span><span class="v">${mc.angulo_otimo_graus}° / ${mc.orientacao_otima_graus}° (PVGIS)</span></div>
+              <div class="field-row"><span class="k">Irradiação anual</span><span class="v">${mc.irradiacao_anual_kwh_m2} kWh/m²</span></div>
+            </div>
+          </div>
+          ${tr ? `
+          <div class="card-body" style="padding-top:0;">
+            <div class="sub-heading">Se os painéis seguirem o declive natural do terreno</div>
+            <div class="field-row"><span class="k">Declive estimado</span><span class="v">${tr.declive_estimado_graus}°</span></div>
+            <div class="field-row"><span class="k">Orientação estimada</span><span class="v">${tr.orientacao_estimada}</span></div>
+            <div class="field-row"><span class="k">Produção estimada</span><span class="v">${tr.producao_estimada_kwh_por_kwp_ano} kWh/kWp/ano (${tr.percentagem_do_potencial_otimo}% do melhor caso)</span></div>
+          </div>` : ''}
+          <div class="card-body" style="padding-top:0;">
+            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Confiança:</strong> ${solar.confidence.label} — ${solar.confidence.reason}</p>
+            <div class="limitations">${solar.limitations.join(' ')}</div>
+          </div>
+        </div>`;
+    } else {
+      solarHtml = `<div class="engine-card"><div class="card-head"><h3>Motor Energético</h3></div>
+        <div class="locked-note">Erro ao consultar: ${solar && (solar.erro || (solar.confidence && solar.confidence.reason)) || 'desconhecido'}</div></div>`;
+    }
+
+    // --- Motor Agronómico ---
+    let agricolaHtml;
+    if (agricola && agricola.answer) {
+      const a = agricola.answer;
+      const confClass = confClassFromLabel(agricola.confidence.label);
+      agricolaHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Motor Agronómico</h3><span class="badge">implementado</span></div>
+          <div class="card-body" style="display:flex; gap:12px;">
+            <div class="stamp ${confClass}">${agricola.confidence.label}<br>confiança</div>
+            <div style="flex:1;">
+              <p class="conclusion">${a.textura_solo || 'Textura não determinada'}</p>
+              <div class="field-row"><span class="k">Composição</span><span class="v">${a.composicao.argila_pct?.toFixed(1)}% argila / ${a.composicao.areia_pct?.toFixed(1)}% areia / ${a.composicao.limo_pct?.toFixed(1)}% limo</span></div>
+              <div class="field-row"><span class="k">pH</span><span class="v">${a.ph.valor?.toFixed(1)} (${a.ph.classificacao})</span></div>
+              <div class="field-row"><span class="k">Carbono orgânico</span><span class="v">${a.carbono_organico_g_kg} g/kg</span></div>
+              <div class="field-row"><span class="k">Declive</span><span class="v">${a.declive_graus}°</span></div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:0;">
+            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Confiança:</strong> ${agricola.confidence.reason}</p>
+            <div class="limitations">${agricola.limitations.join(' ')}</div>
+          </div>
+        </div>`;
+    } else {
+      agricolaHtml = `<div class="engine-card"><div class="card-head"><h3>Motor Agronómico</h3></div>
+        <div class="locked-note">Erro ao consultar: ${agricola && (agricola.erro || (agricola.confidence && agricola.confidence.reason)) || 'desconhecido'}</div></div>`;
+    }
+
+    // --- Motor Hídrico ---
+    let hidricoHtml;
+    if (hidrico && hidrico.answer) {
+      const h = hidrico.answer;
+      const confClass = confClassFromLabel(hidrico.confidence.label);
+      const ind = h.indicadores_num_raio_1km;
+      const sN = (v) => v ? 'Sim' : 'Não';
+      hidricoHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Motor Hídrico</h3><span class="badge">implementado</span></div>
+          <div class="card-body" style="display:flex; gap:12px;">
+            <div class="stamp ${confClass}">${hidrico.confidence.label}<br>confiança</div>
+            <div style="flex:1;">
+              <p class="conclusion">${h.precipitacao_classificacao || 'Precipitação não determinada'}</p>
+              <div class="field-row"><span class="k">Precipitação média</span><span class="v">${h.precipitacao_media_mm_ano} mm/ano (${h.periodo_referencia_precipitacao})</span></div>
+              <div class="field-row"><span class="k">Água de superfície (1km)</span><span class="v">${sN(ind.agua_superficie_perto)}</span></div>
+              <div class="field-row"><span class="k">Captação subterrânea (1km)</span><span class="v">${sN(ind.captacao_subterranea_perto)}</span></div>
+              <div class="field-row"><span class="k">Infraestrutura de rega (1km)</span><span class="v">${sN(ind.infraestrutura_rega_perto)}</span></div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:0;">
+            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Confiança:</strong> ${hidrico.confidence.reason}</p>
+            <div class="limitations">${hidrico.limitations.join(' ')}</div>
+          </div>
+        </div>`;
+    } else {
+      hidricoHtml = `<div class="engine-card"><div class="card-head"><h3>Motor Hídrico</h3></div>
+        <div class="locked-note">Erro ao consultar: ${hidrico && (hidrico.erro || (hidrico.confidence && hidrico.confidence.reason)) || 'desconhecido'}</div></div>`;
+    }
+
+    panel.innerHTML = `
+      <div class="dossier-header">
+        <span class="ref">PROCESSO ${refNumber(lat, lon)}</span>
+        <span>${new Date().toLocaleString('pt-PT')}</span>
+      </div>
+      ${identidadeHtml}
+      ${juridicoHtml}
+      ${solarHtml}
+      ${agricolaHtml}
+      ${hidricoHtml}
+      ${lockedEngineCard("Motor Ambiental", "Riscos naturais agregados e sensibilidade ecológica.")}
+    `;
+  }
+
+  function lockedEngineCard(nome, descricao) {
+    return `
+      <div class="engine-card locked">
+        <div class="card-head"><h3>${nome}</h3><span class="badge locked">🔒 por implementar</span></div>
+        <div class="locked-note">${descricao}</div>
+      </div>`;
+  }
+
+  function refNumber(lat, lon) {
+    const raw = `${lat.toFixed(5)}${lon.toFixed(5)}`;
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+    return `SLV-${(hash % 99999).toString().padStart(5, '0')}`;
+  }
+</script>
+</body>
+</html>
