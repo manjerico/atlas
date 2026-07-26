@@ -1,0 +1,191 @@
+"""
+Atlas - Motor Hidrico v0 (prototipo)
+
+Combina duas fontes:
+  1. SIG do PDM de Silves -- presenca de linhas de agua (Dominio Publico
+     Hidrico), captacoes de agua subterranea, albufeiras e aproveitamentos
+     hidroagricolas (rega) num raio de 1km do ponto.
+  2. Open-Meteo (ERA5-Land, ECMWF) -- precipitacao media anual dos ultimos
+     10 anos, como contexto climatico regional.
+
+O que este motor responde: "ha indicadores de agua disponivel perto deste
+local?" -- presenca de infraestrutura e agua de superficie, e o contexto
+climatico da regiao. NAO responde "tenho caudal suficiente para regar X
+hectares" -- isso exigiria um estudo hidrogeologico e um projeto de rega
+a serio, fora do que dados abertos conseguem dar.
+
+Uso:
+    python atlas_motor_hidrico.py <latitude> <longitude>
+"""
+
+import sys
+import json
+from datetime import datetime, timezone, date
+import urllib.request
+import urllib.parse
+
+BASE_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer"
+OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
+
+RAIO_BUSCA_M = 1000  # metros
+
+CAMADAS_HIDRICAS = {
+    391: {"nome": "Domínio Público Hídrico (Águas Fluviais) - linha", "categoria": "agua_superficie"},
+    392: {"nome": "Domínio Público Hídrico (Águas Fluviais) - polígono", "categoria": "agua_superficie"},
+    394: {"nome": "Albufeiras / Lagos de Águas Públicas", "categoria": "agua_superficie"},
+    395: {"nome": "Captação de Águas Subterrâneas para Abastecimento Público", "categoria": "agua_subterranea"},
+    396: {"nome": "Captações de Águas Subterrâneas (polígono)", "categoria": "agua_subterranea"},
+    403: {"nome": "Obras de Aproveitamento Hidroagrícola - linha", "categoria": "rega"},
+    404: {"nome": "Obras de Aproveitamento Hidroagrícola - polígono", "categoria": "rega"},
+}
+
+
+def _query_layer_buffer(layer_id, lat, lon, raio_m=RAIO_BUSCA_M):
+    """Interroga uma camada, com um buffer (distance/units) a partir do ponto --
+    ao contrario do motor juridico, aqui queremos saber o que existe PERTO,
+    nao so exatamente no ponto."""
+    params = {
+        "geometry": f"{lon},{lat}",
+        "geometryType": "esriGeometryPoint",
+        "inSR": "4326",
+        "spatialRel": "esriSpatialRelIntersects",
+        "distance": raio_m,
+        "units": "esriSRUnit_Meter",
+        "outFields": "*",
+        "where": "1=1",
+        "returnGeometry": "false",
+        "f": "json",
+    }
+    url = f"{BASE_URL}/{layer_id}/query?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"User-Agent": "AtlasPrototype/0.1"})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    features = data.get("features", [])
+    return [f for f in features if f.get("attributes", {}).get("DESACTIVO") not in (1, "1")]
+
+
+def obter_precipitacao_media_anual(lat, lon, anos=10):
+    """Media anual de precipitacao dos ultimos N anos completos, via Open-Meteo (ERA5-Land)."""
+    ano_atual = date.today().year
+    ano_fim = ano_atual - 1  # ultimo ano completo
+    ano_inicio = ano_fim - anos + 1
+
+    params = {
+        "latitude": lat, "longitude": lon,
+        "start_date": f"{ano_inicio}-01-01", "end_date": f"{ano_fim}-12-31",
+        "daily": "precipitation_sum", "timezone": "auto",
+    }
+    url = f"{OPEN_METEO_URL}?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"User-Agent": "AtlasPrototype/0.1"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+
+    valores = [v for v in data["daily"]["precipitation_sum"] if v is not None]
+    total_periodo = sum(valores)
+    media_anual = total_periodo / anos
+    return round(media_anual, 1), ano_inicio, ano_fim
+
+
+def classificar_precipitacao(mm_ano):
+    if mm_ano < 400:
+        return "Baixa (clima semi-árido)"
+    elif mm_ano < 700:
+        return "Moderada (típica do sul de Portugal)"
+    elif mm_ano < 1000:
+        return "Elevada"
+    return "Muito elevada"
+
+
+def montar_conclusao(lat, lon):
+    resultados = {}
+    erro_sig = None
+    for layer_id in CAMADAS_HIDRICAS:
+        try:
+            resultados[layer_id] = _query_layer_buffer(layer_id, lat, lon)
+        except Exception as e:
+            resultados[layer_id] = []
+            erro_sig = str(e)
+
+    def presente(categoria):
+        return any(
+            isinstance(resultados.get(lid), list) and resultados[lid]
+            for lid, meta in CAMADAS_HIDRICAS.items() if meta["categoria"] == categoria
+        )
+
+    indicadores = {
+        "agua_superficie_perto": presente("agua_superficie"),
+        "captacao_subterranea_perto": presente("agua_subterranea"),
+        "infraestrutura_rega_perto": presente("rega"),
+    }
+
+    precipitacao_media = None
+    periodo = None
+    try:
+        precipitacao_media, ano_i, ano_f = obter_precipitacao_media_anual(lat, lon)
+        periodo = f"{ano_i}-{ano_f}"
+    except Exception as e:
+        erro_precip = str(e)
+    else:
+        erro_precip = None
+
+    limitations = [
+        f"Procura limitada a um raio de {RAIO_BUSCA_M}m -- nao indica caudal, "
+        "qualidade da agua, nem direitos de uso/exploracao.",
+        "Nao substitui um estudo hidrogeologico ou projeto de rega para "
+        "decisoes de investimento -- e um indicador de triagem, nao uma "
+        "garantia de disponibilidade de agua.",
+        "A precipitacao e uma media histórica regional (ERA5-Land, ~9km de "
+        "resolucao) -- nao reflete variacoes locais nem anos excecionais "
+        "(secas ou cheias).",
+    ]
+    if erro_sig:
+        limitations.insert(0, f"Algumas camadas do SIG de Silves falharam: {erro_sig}")
+    if erro_precip:
+        limitations.insert(0, f"Nao foi possivel obter precipitacao: {erro_precip}")
+
+    n_indicadores = sum(indicadores.values())
+    if erro_sig or erro_precip:
+        confianca = "Baixa"
+    elif n_indicadores >= 2:
+        confianca = "Média"
+    else:
+        confianca = "Média"  # presenca/ausencia e sempre uma leitura indireta, nunca "Alta"
+
+    return {
+        "engine": "Hidrico",
+        "question": "Tenho disponibilidade de água suficiente?",
+        "coordinates": {"lat": lat, "lon": lon},
+        "answer": {
+            "indicadores_num_raio_1km": indicadores,
+            "precipitacao_media_mm_ano": precipitacao_media,
+            "precipitacao_classificacao": classificar_precipitacao(precipitacao_media) if precipitacao_media else None,
+            "periodo_referencia_precipitacao": periodo,
+        },
+        "knowledge_level": "INFERENCE",
+        "confidence": {
+            "label": confianca,
+            "reason": (
+                "Presenca/ausencia de agua de superficie ou infraestrutura num raio "
+                "de 1km e um indicador indireto -- nunca corresponde a uma medicao "
+                "direta de disponibilidade de agua na parcela."
+            ),
+        },
+        "evidence": [
+            {"layer_id": lid, "nome": meta["nome"], "features_no_raio": len(resultados.get(lid, []))}
+            for lid, meta in CAMADAS_HIDRICAS.items()
+        ] + ([{"fonte": "Open-Meteo (ERA5-Land)", "precipitacao_media_mm_ano": precipitacao_media, "periodo": periodo}] if precipitacao_media else []),
+        "limitations": limitations,
+        "sources": [
+            "sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer",
+            "https://open-meteo.com (ERA5-Land, ECMWF)",
+        ],
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Uso: python atlas_motor_hidrico.py <latitude> <longitude>")
+        sys.exit(1)
+    lat, lon = float(sys.argv[1]), float(sys.argv[2])
+    print(json.dumps(montar_conclusao(lat, lon), indent=2, ensure_ascii=False))

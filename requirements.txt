@@ -1,0 +1,5 @@
+flask
+numpy
+tifffile
+Pillow
+gunicorn
