@@ -180,7 +180,7 @@
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 18
   }).addTo(map);
-  const camadaSatelite = L.esri.dynamicMapLayer({ url: ORTOS_URL });
+  const camadaSatelite = L.esri.dynamicMapLayer({ url: ORTOS_URL, pane: 'tilePane' });
 
   L.control.layers(
     { "Mapa (OpenStreetMap)": camadaOSM, "Satélite (OrtoSat2023, DGT)": camadaSatelite },
@@ -221,7 +221,7 @@
       ranRenLayer = null;
     }
   }
-  atualizarCamadaRanRen(true);
+  atualizarCamadaRanRen(false);
 
   // Linhas de água (Domínio Público Hídrico) -- classificação legal/
   // administrativa, pode não incluir todas as linhas de escorrência
@@ -247,7 +247,7 @@
     onAdd: function () {
       const div = L.DomUtil.create('div', 'map-legend');
       div.innerHTML = `
-        <label><input type="checkbox" id="toggle-ran-ren" checked> Mostrar RAN / REN</label>
+        <label><input type="checkbox" id="toggle-ran-ren"> Mostrar RAN / REN</label>
         <div class="swatch"><span class="swatch-color" style="background:rgb(56,168,0);"></span> RAN (Reserva Agrícola Nacional)</div>
         <div class="swatch"><span class="swatch-color" style="background:rgb(171,205,102);"></span> REN (Reserva Ecológica Nacional)</div>
         <div class="nota">Cores tal como definidas pelo SIG oficial de Silves. RAN aparece com padrão hachurado no mapa.</div>
