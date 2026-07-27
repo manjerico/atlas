@@ -253,6 +253,10 @@ def calcular_bacia_natural(mosaico, seed_latlon, incremento_registo=0.25, max_ce
 
 
 def calcular_charca(mosaico, barreira_p1, barreira_p2, montante, altura_barragem):
+    E1, N1 = latlon_para_en(*barreira_p1)
+    E2, N2 = latlon_para_en(*barreira_p2)
+    comprimento_barreira_m = math.sqrt((E2 - E1) ** 2 + (N2 - N1) ** 2)
+
     barreira_celulas = amostrar_linha(mosaico, barreira_p1, barreira_p2)
     if not barreira_celulas:
         raise ValueError("A linha da barreira cai fora da area coberta pelos ficheiros.")
@@ -300,6 +304,7 @@ def calcular_charca(mosaico, barreira_p1, barreira_p2, montante, altura_barragem
 
     return {
         "cota_barreira_m": round(float(cota_barreira), 2),
+        "comprimento_barreira_m": round(comprimento_barreira_m, 1),
         "nivel_agua_m": round(float(nivel_agua), 2),
         "area_inundada_m2": round(area_m2, 1),
         "area_inundada_ha": round(area_m2 / 10000, 3),
