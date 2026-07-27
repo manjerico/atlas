@@ -117,6 +117,20 @@
   }
   .charca-btn:hover{background:var(--teal-dark);}
   .charca-btn.ativo{background:var(--clay);}
+
+  #busca-parcela{ display:flex; gap:6px; align-items:center; font-size:0.8rem; }
+  #busca-parcela input{
+    border:1px solid #4a7a6e; border-radius:4px; padding:4px 6px;
+    font-family:var(--font-body); font-size:0.8rem; background:#fff; color:var(--ink);
+  }
+  #busca-freguesia{width:150px;}
+  #busca-seccao{width:55px;}
+  #busca-predio{width:65px;}
+  #busca-parcela button{
+    background:var(--clay); color:#fff; border:none; border-radius:4px;
+    padding:5px 10px; cursor:pointer; font-size:0.8rem;
+  }
+  #busca-resultado{font-size:0.72rem; color:#ffd9c2;}
 </style>
 </head>
 <body>
@@ -125,7 +139,13 @@
     <h1>Atlas</h1>
     <span class="tag">protótipo · Silves</span>
     <span class="spacer"></span>
-    <span class="subtitle">clica no mapa para analisar um local</span>
+    <div id="busca-parcela">
+      <input id="busca-freguesia" placeholder="Freguesia">
+      <input id="busca-seccao" placeholder="Secção">
+      <input id="busca-predio" placeholder="Prédio nº">
+      <button id="btn-buscar-parcela">Ir para parcela</button>
+      <span id="busca-resultado"></span>
+    </div>
   </header>
   <main>
     <div id="map"></div>
@@ -152,12 +172,20 @@
   const PDM_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer";
   const RAN_LAYER_ID = 406;
   const REN_LAYER_ID = 399;
+  const LINHAS_AGUA_LAYER_IDS = [391, 392]; // Domínio Público Hídrico (linha + polígono)
+  const ORTOS_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/ORTOS2023/MapServer";
 
   const map = L.map('map', { zoomControl: true }).setView([37.19, -8.44], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  const camadaOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 18
   }).addTo(map);
+  const camadaSatelite = L.esri.dynamicMapLayer({ url: ORTOS_URL });
+
+  L.control.layers(
+    { "Mapa (OpenStreetMap)": camadaOSM, "Satélite (OrtoSat2023, DGT)": camadaSatelite },
+    {}, { position: 'topleft', collapsed: false }
+  ).addTo(map);
 
   const CADASTRO_MIN_ZOOM = 15;
   let cadastroLayer = null;
@@ -195,6 +223,24 @@
   }
   atualizarCamadaRanRen(true);
 
+  // Linhas de água (Domínio Público Hídrico) -- classificação legal/
+  // administrativa, pode não incluir todas as linhas de escorrência
+  // visíveis num levantamento topográfico local. Começa desligada, para
+  // não sobrecarregar o mapa por omissão.
+  let linhasAguaLayer = null;
+  function atualizarCamadaLinhasAgua(visivel) {
+    if (visivel) {
+      if (!linhasAguaLayer) {
+        linhasAguaLayer = L.esri.dynamicMapLayer({
+          url: PDM_URL, layers: LINHAS_AGUA_LAYER_IDS, opacity: 0.85
+        }).addTo(map);
+      }
+    } else if (linhasAguaLayer) {
+      map.removeLayer(linhasAguaLayer);
+      linhasAguaLayer = null;
+    }
+  }
+
   // Controlo + legenda, canto superior direito
   const LegendaControl = L.Control.extend({
     options: { position: 'topright' },
@@ -205,6 +251,8 @@
         <div class="swatch"><span class="swatch-color" style="background:rgb(56,168,0);"></span> RAN (Reserva Agrícola Nacional)</div>
         <div class="swatch"><span class="swatch-color" style="background:rgb(171,205,102);"></span> REN (Reserva Ecológica Nacional)</div>
         <div class="nota">Cores tal como definidas pelo SIG oficial de Silves. RAN aparece com padrão hachurado no mapa.</div>
+        <label style="margin-top:10px;"><input type="checkbox" id="toggle-linhas-agua"> Mostrar linhas de água</label>
+        <div class="nota">Domínio Público Hídrico (classificação legal) -- pode não incluir todas as linhas de escorrência de um levantamento local.</div>
       `;
       L.DomEvent.disableClickPropagation(div);
       return div;
@@ -214,6 +262,54 @@
   document.getElementById('toggle-ran-ren').addEventListener('change', (e) => {
     atualizarCamadaRanRen(e.target.checked);
   });
+  document.getElementById('toggle-linhas-agua').addEventListener('change', (e) => {
+    atualizarCamadaLinhasAgua(e.target.checked);
+  });
+
+  // ----- Pesquisa de parcela por Freguesia / Secção / Nº de prédio -----
+  let parcelaEncontradaLayer = null;
+
+  document.getElementById('btn-buscar-parcela').addEventListener('click', buscarParcela);
+
+  async function buscarParcela() {
+    const freguesia = document.getElementById('busca-freguesia').value.trim();
+    const seccao = document.getElementById('busca-seccao').value.trim();
+    const predio = document.getElementById('busca-predio').value.trim();
+    const resultadoEl = document.getElementById('busca-resultado');
+
+    if (!freguesia || !seccao || !predio) {
+      resultadoEl.textContent = 'Preenche os três campos.';
+      return;
+    }
+    resultadoEl.textContent = 'A procurar…';
+
+    // UPPER()+LIKE para tolerar diferenças de maiúsculas/acentuação --
+    // não é perfeito (acentos digitados de forma diferente dos dados
+    // continuam a poder falhar), mas ajuda com o caso mais comum.
+    const freguesiaEsc = freguesia.toUpperCase().replace(/'/g, "''");
+    const seccaoEsc = seccao.toUpperCase().replace(/'/g, "''");
+    const where = `UPPER(FREG) LIKE '%${freguesiaEsc}%' AND UPPER(seccao)='${seccaoEsc}' AND nprd=${parseFloat(predio)}`;
+
+    const params = new URLSearchParams({
+      where, outFields: '*', returnGeometry: 'true', f: 'geojson',
+    });
+    try {
+      const res = await fetch(`${CADASTRO_URL}/${CADASTRO_PREDIO_LAYER_ID}/query?${params.toString()}`);
+      const data = await res.json();
+      if (!data.features || data.features.length === 0) {
+        resultadoEl.textContent = 'Não encontrado. Confirma o nome da freguesia e a secção.';
+        return;
+      }
+      if (parcelaEncontradaLayer) map.removeLayer(parcelaEncontradaLayer);
+      parcelaEncontradaLayer = L.geoJSON(data, {
+        style: { color: '#e74c3c', weight: 3, fillOpacity: 0.15 }
+      }).addTo(map);
+      map.fitBounds(parcelaEncontradaLayer.getBounds(), { maxZoom: 17 });
+      resultadoEl.textContent = `Encontrado (${data.features.length} resultado${data.features.length > 1 ? 's' : ''}).`;
+    } catch (e) {
+      resultadoEl.textContent = 'Erro na pesquisa.';
+    }
+  }
 
   // ----- Modo Charca (barragem/represa) -----
   let charcaModoAtivo = false;
