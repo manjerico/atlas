@@ -26,8 +26,13 @@ import urllib.parse
 
 BASE_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer"
 OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
+LNEG_URL = "https://sig.lneg.pt/server/rest/services/RecursosHidro/MapServer"
+LNEG_PONTOS_AGUA_LAYER_ID = 0
+LNEG_AQUIFEROS_LAYER_ID = 2
 
 RAIO_BUSCA_M = 1000  # metros
+
+TIPO_PONTO_AGUA = {1: "Furo", 2: "Poço", 3: "Nascente", 4: "Sondagem"}
 
 CAMADAS_HIDRICAS = {
     391: {"nome": "Domínio Público Hídrico (Águas Fluviais) - linha", "categoria": "agua_superficie"},
@@ -96,6 +101,51 @@ def classificar_precipitacao(mm_ano):
     return "Muito elevada"
 
 
+def obter_sistema_aquifero(lat, lon):
+    """Interroga o LNEG por interseccao exata (nao buffer) -- que sistema
+    aquifero esta por baixo deste ponto, se algum."""
+    params = {
+        "geometry": f"{lon},{lat}",
+        "geometryType": "esriGeometryPoint",
+        "inSR": "4326",
+        "spatialRel": "esriSpatialRelIntersects",
+        "outFields": "NomeCompleto,SistemaAquifero,Idade,CodigoInag",
+        "where": "1=1",
+        "returnGeometry": "false",
+        "f": "json",
+    }
+    url = f"{LNEG_URL}/{LNEG_AQUIFEROS_LAYER_ID}/query?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"User-Agent": "AtlasPrototype/0.1"})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    features = data.get("features", [])
+    if not features:
+        return None
+    return features[0]["attributes"]
+
+
+def obter_pontos_agua_perto(lat, lon, raio_m=RAIO_BUSCA_M):
+    """Furos, pocos, nascentes e sondagens inventariados pelo LNEG num
+    raio a volta do ponto."""
+    params = {
+        "geometry": f"{lon},{lat}",
+        "geometryType": "esriGeometryPoint",
+        "inSR": "4326",
+        "spatialRel": "esriSpatialRelIntersects",
+        "distance": raio_m,
+        "units": "esriSRUnit_Meter",
+        "outFields": "IDTipoPA,IDUso,Local",
+        "where": "1=1",
+        "returnGeometry": "false",
+        "f": "json",
+    }
+    url = f"{LNEG_URL}/{LNEG_PONTOS_AGUA_LAYER_ID}/query?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"User-Agent": "AtlasPrototype/0.1"})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return [f["attributes"] for f in data.get("features", [])]
+
+
 def montar_conclusao(lat, lon):
     resultados = {}
     erro_sig = None
@@ -128,6 +178,20 @@ def montar_conclusao(lat, lon):
     else:
         erro_precip = None
 
+    aquifero = None
+    pontos_agua = []
+    erro_lneg = None
+    try:
+        aquifero = obter_sistema_aquifero(lat, lon)
+        pontos_agua = obter_pontos_agua_perto(lat, lon)
+    except Exception as e:
+        erro_lneg = str(e)
+
+    contagem_tipos = {}
+    for p in pontos_agua:
+        tipo = TIPO_PONTO_AGUA.get(p.get("IDTipoPA"), "Desconhecido")
+        contagem_tipos[tipo] = contagem_tipos.get(tipo, 0) + 1
+
     limitations = [
         f"Procura limitada a um raio de {RAIO_BUSCA_M}m -- nao indica caudal, "
         "qualidade da agua, nem direitos de uso/exploracao.",
@@ -137,11 +201,18 @@ def montar_conclusao(lat, lon):
         "A precipitacao e uma media histórica regional (ERA5-Land, ~9km de "
         "resolucao) -- nao reflete variacoes locais nem anos excecionais "
         "(secas ou cheias).",
+        "A Base de Dados de Recursos Hidrogeologicos do LNEG nao inclui "
+        "profundidade do nivel freatico nem caudal -- so confirma a "
+        "existencia e o tipo de pontos de agua inventariados, e o sistema "
+        "aquifero geologico. Um furo produtivo aqui nao garante que um novo "
+        "furo tera o mesmo resultado -- isso depende de teste no terreno.",
     ]
     if erro_sig:
         limitations.insert(0, f"Algumas camadas do SIG de Silves falharam: {erro_sig}")
     if erro_precip:
         limitations.insert(0, f"Nao foi possivel obter precipitacao: {erro_precip}")
+    if erro_lneg:
+        limitations.insert(0, f"Nao foi possivel consultar o LNEG (recursos hidrogeologicos): {erro_lneg}")
 
     n_indicadores = sum(indicadores.values())
     if erro_sig or erro_precip:
@@ -160,6 +231,14 @@ def montar_conclusao(lat, lon):
             "precipitacao_media_mm_ano": precipitacao_media,
             "precipitacao_classificacao": classificar_precipitacao(precipitacao_media) if precipitacao_media else None,
             "periodo_referencia_precipitacao": periodo,
+            "sistema_aquifero": {
+                "nome": aquifero.get("NomeCompleto") if aquifero else None,
+                "idade_geologica": aquifero.get("Idade") if aquifero else None,
+            } if aquifero else None,
+            "pontos_agua_subterranea": {
+                "total_no_raio": len(pontos_agua),
+                "por_tipo": contagem_tipos,
+            },
         },
         "knowledge_level": "INFERENCE",
         "confidence": {
@@ -173,11 +252,18 @@ def montar_conclusao(lat, lon):
         "evidence": [
             {"layer_id": lid, "nome": meta["nome"], "features_no_raio": len(resultados.get(lid, []))}
             for lid, meta in CAMADAS_HIDRICAS.items()
-        ] + ([{"fonte": "Open-Meteo (ERA5-Land)", "precipitacao_media_mm_ano": precipitacao_media, "periodo": periodo}] if precipitacao_media else []),
+        ] + (
+            [{"fonte": "Open-Meteo (ERA5-Land)", "precipitacao_media_mm_ano": precipitacao_media, "periodo": periodo}]
+            if precipitacao_media else []
+        ) + (
+            [{"fonte": "LNEG (Sistemas Aquíferos)", "sistema": aquifero.get("NomeCompleto")}]
+            if aquifero else []
+        ) + [{"fonte": "LNEG (Pontos de Água)", "total_no_raio": len(pontos_agua), "por_tipo": contagem_tipos}],
         "limitations": limitations,
         "sources": [
             "sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer",
             "https://open-meteo.com (ERA5-Land, ECMWF)",
+            "https://sig.lneg.pt (LNEG -- Recursos Hidrogeológicos)",
         ],
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

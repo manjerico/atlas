@@ -34,20 +34,35 @@ def _query_linhas(xmin, ymin, xmax, ymax):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _extremos(geometry):
+def _extremos(geometry, bbox=None):
     """Devolve (primeiro_ponto, ultimo_ponto), cada um [lon, lat], de uma
-    LineString/MultiLineString GeoJSON. Simplificacao: para MultiLineString
-    usa-se so a primeira parte."""
+    LineString/MultiLineString GeoJSON.
+
+    Para MultiLineString (varias partes desconectadas debaixo do mesmo
+    registo -- comum em hidrografia, ex: um rio inteiro com troços em
+    varios sitios do concelho), escolhe-se a parte que realmente tem um
+    ponto dentro do bbox pedido, nao apenas a primeira parte da lista --
+    caso contrario arriscamo-nos a apanhar um troço bem longe da area
+    que o utilizador está a ver."""
     if geometry["type"] == "LineString":
-        coords = geometry["coordinates"]
+        partes = [geometry["coordinates"]]
     elif geometry["type"] == "MultiLineString":
-        if not geometry["coordinates"]:
-            return None
-        coords = geometry["coordinates"][0]
+        partes = geometry["coordinates"]
     else:
         return None
-    if len(coords) < 2:
+
+    partes = [p for p in partes if len(p) >= 2]
+    if not partes:
         return None
+
+    coords = partes[0]
+    if bbox is not None and len(partes) > 1:
+        xmin, ymin, xmax, ymax = bbox
+        for p in partes:
+            if any(xmin <= pt[0] <= xmax and ymin <= pt[1] <= ymax for pt in p):
+                coords = p
+                break
+
     return coords[0], coords[-1]
 
 
@@ -74,7 +89,7 @@ def calcular_direcoes(xmin, ymin, xmax, ymax, max_linhas=60):
     linhas_validas = []
     pontos_para_elevacao = []
     for f in features:
-        extremos = _extremos(f["geometry"])
+        extremos = _extremos(f["geometry"], bbox=(xmin, ymin, xmax, ymax))
         if extremos is None:
             continue
         linhas_validas.append(extremos)

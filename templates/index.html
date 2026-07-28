@@ -866,6 +866,8 @@
               <div class="field-row"><span class="k">Água de superfície (1km)</span><span class="v">${sN(ind.agua_superficie_perto)}</span></div>
               <div class="field-row"><span class="k">Captação subterrânea (1km)</span><span class="v">${sN(ind.captacao_subterranea_perto)}</span></div>
               <div class="field-row"><span class="k">Infraestrutura de rega (1km)</span><span class="v">${sN(ind.infraestrutura_rega_perto)}</span></div>
+              <div class="field-row"><span class="k">Sistema aquífero</span><span class="v">${h.sistema_aquifero ? h.sistema_aquifero.nome + ' (' + h.sistema_aquifero.idade_geologica + ')' : 'Não identificado'}</span></div>
+              <div class="field-row"><span class="k">Pontos de água (LNEG, 1km)</span><span class="v">${h.pontos_agua_subterranea.total_no_raio} — ${Object.entries(h.pontos_agua_subterranea.por_tipo).map(([t,n]) => `${n} ${t}`).join(', ') || 'nenhum'}</span></div>
             </div>
           </div>
           <div class="card-body" style="padding-top:0;">
