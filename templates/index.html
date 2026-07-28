@@ -230,6 +230,65 @@
     atualizarCamadaRanRen(e.target.checked);
   });
 
+  // ----- Sentido da corrente de água (setas na vista atual) -----
+  let setaAguaLayers = [];
+  let setaAguaAtiva = false;
+
+  function bearingEntrePontos(lat1, lon1, lat2, lon2) {
+    const toRad = d => d * Math.PI / 180;
+    const dLon = toRad(lon2 - lon1);
+    const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+    const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+              Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function limparSetasAgua() {
+    setaAguaLayers.forEach(l => map.removeLayer(l));
+    setaAguaLayers = [];
+  }
+
+  document.getElementById('btn-sentido-agua').addEventListener('click', async () => {
+    setaAguaAtiva = !setaAguaAtiva;
+    const btn = document.getElementById('btn-sentido-agua');
+    limparSetasAgua();
+    if (!setaAguaAtiva) {
+      btn.textContent = '➡️ Sentido da água (vista atual)';
+      btn.classList.remove('ativo');
+      return;
+    }
+    btn.textContent = 'A calcular…';
+    const b = map.getBounds();
+    const params = new URLSearchParams({
+      xmin: b.getWest(), ymin: b.getSouth(), xmax: b.getEast(), ymax: b.getNorth(),
+    });
+    try {
+      const data = await fetch(`/api/linhas-agua-direcao?${params.toString()}`).then(r => r.json());
+      (data.linhas || []).forEach(l => {
+        const linha = L.polyline([l.origem, l.destino], { color: '#1a5fb4', weight: 2, opacity: 0.8 }).addTo(map);
+        setaAguaLayers.push(linha);
+        const meio = [(l.origem[0] + l.destino[0]) / 2, (l.origem[1] + l.destino[1]) / 2];
+        const bearing = bearingEntrePontos(l.origem[0], l.origem[1], l.destino[0], l.destino[1]);
+        const seta = L.marker(meio, {
+          icon: L.divIcon({
+            className: '', iconSize: [20, 20], iconAnchor: [10, 10],
+            html: `<div style="font-size:18px; color:#1a5fb4; transform:rotate(${bearing}deg); transform-origin:center;">➤</div>`,
+          }),
+        }).addTo(map);
+        setaAguaLayers.push(seta);
+      });
+      btn.textContent = `✕ Sentido da água (${(data.linhas || []).length} linhas)`;
+      btn.classList.add('ativo');
+      if (data.aviso) {
+        const avisoEl = document.getElementById('busca-resultado');
+        if (avisoEl) avisoEl.textContent = data.aviso;
+      }
+    } catch (e) {
+      btn.textContent = '➡️ Sentido da água (vista atual)';
+      setaAguaAtiva = false;
+    }
+  });
+
   // ----- Pesquisa de parcela: dropdowns em cascata (Freguesia -> Secção -> Prédio) -----
   let parcelaEncontradaLayer = null;
 
@@ -321,14 +380,16 @@
 
   // ----- Modo Charca (barragem/represa) -----
   let charcaModoAtivo = false;
-  let charcaAutoModoAtivo = false;
   let terraplanagemModoAtivo = false;
   let terraplanagemPontos = [];
   let terraplanagemLayers = [];
   let terraplanagemOverlay = null;
-  let charcaPontos = [];   // até 3 pontos: [barreira1, barreira2, montante]
+  let charcaBarreira = [];    // 2 ou mais pontos, permite barreiras em arco
+  let charcaMontante = null;
+  let charcaFase = 'barreira';   // 'barreira' -> 'montante' -> 'pronto'
   let charcaLayers = [];   // marcadores/linha desenhados no mapa, para limpar depois
   let mancheOverlay = null; // imagem da área inundada, desenhada por cima do mapa
+  let zonaProtecaoLayer = null; // círculo da faixa de gestão de combustível (Motor Ambiental)
 
   const CharcaControl = L.Control.extend({
     options: { position: 'bottomleft' },
@@ -336,8 +397,8 @@
       const div = L.DomUtil.create('div', 'map-legend');
       div.innerHTML = `
         <button id="btn-charca" class="charca-btn">💧 Calcular charca (manual)</button>
-        <button id="btn-charca-auto" class="charca-btn" style="margin-top:6px;">🔍 Detetar bacia natural</button>
         <button id="btn-terraplanagem" class="charca-btn" style="margin-top:6px;">⛏️ Calcular terraplanagem</button>
+        <button id="btn-sentido-agua" class="charca-btn" style="margin-top:6px;">➡️ Sentido da água (vista atual)</button>
       `;
       L.DomEvent.disableClickPropagation(div);
       return div;
@@ -348,14 +409,13 @@
   function limparCharca() {
     charcaLayers.forEach(l => map.removeLayer(l));
     charcaLayers = [];
-    charcaPontos = [];
+    charcaBarreira = [];
+    charcaMontante = null;
+    charcaFase = 'barreira';
     mancheOverlay = null;
   }
 
   document.getElementById('btn-charca').addEventListener('click', () => {
-    charcaAutoModoAtivo = false;
-    document.getElementById('btn-charca-auto').textContent = '🔍 Detetar bacia natural';
-    document.getElementById('btn-charca-auto').classList.remove('ativo');
     terraplanagemModoAtivo = false;
     document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
     document.getElementById('btn-terraplanagem').classList.remove('ativo');
@@ -375,36 +435,10 @@
     }
   });
 
-  document.getElementById('btn-charca-auto').addEventListener('click', () => {
-    charcaModoAtivo = false;
-    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
-    document.getElementById('btn-charca').classList.remove('ativo');
-    terraplanagemModoAtivo = false;
-    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
-    document.getElementById('btn-terraplanagem').classList.remove('ativo');
-    limparTerraplanagem();
-    charcaAutoModoAtivo = !charcaAutoModoAtivo;
-    limparCharca();
-    const btn = document.getElementById('btn-charca-auto');
-    if (charcaAutoModoAtivo) {
-      btn.textContent = '✕ Sair da deteção automática';
-      btn.classList.add('ativo');
-      if (marker) { map.removeLayer(marker); marker = null; }
-      panel.innerHTML = `<div class="hint"><strong>Deteção automática de bacia</strong><br>Clica dentro de um vale ou depressão do terreno. O motor cresce a partir desse ponto pela célula mais baixa disponível, e para sozinho quando a bacia natural termina.</div>`;
-    } else {
-      btn.textContent = '🔍 Detetar bacia natural';
-      btn.classList.remove('ativo');
-      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
-    }
-  });
-
   document.getElementById('btn-terraplanagem').addEventListener('click', () => {
     charcaModoAtivo = false;
-    charcaAutoModoAtivo = false;
     document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
     document.getElementById('btn-charca').classList.remove('ativo');
-    document.getElementById('btn-charca-auto').textContent = '🔍 Detetar bacia natural';
-    document.getElementById('btn-charca-auto').classList.remove('ativo');
     limparCharca();
 
     terraplanagemModoAtivo = !terraplanagemModoAtivo;
@@ -502,87 +536,49 @@
     });
   }
 
-  async function handleCliqueCharcaAuto(lat, lng) {
-    if (marker) map.removeLayer(marker);
-    marker = L.marker([lat, lng]).addTo(map);
-    panel.innerHTML = `<div class="loading">A crescer a bacia a partir deste ponto…</div>`;
-
-    let data;
-    try {
-      data = await fetch('/api/motor-charca-auto', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ponto: [lat, lng] }),
-      }).then(r => r.json());
-    } catch (e) {
-      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
-      return;
-    }
-
-    if (!data.answer) {
-      panel.innerHTML = `<div class="error-box">Não foi possível detetar uma bacia: ${data.confidence ? data.confidence.reason : 'erro desconhecido'}</div>`;
-      return;
-    }
-
-    const a = data.answer;
-    if (mancheOverlay) { map.removeLayer(mancheOverlay); mancheOverlay = null; }
-    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
-      mancheOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.85 }).addTo(map);
-      charcaLayers.push(mancheOverlay);
-    }
-
-    const linhasCurva = a.curva_nivel_area_volume.map(p =>
-      `<tr><td>${p.nivel_agua_m} m</td><td>${p.area_ha} ha</td><td>${p.volume_m3.toLocaleString('pt-PT')} m³</td></tr>`
-    ).join('');
-
-    panel.innerHTML = `
-      <div class="engine-card">
-        <div class="card-head"><h3>Bacia Natural Detetada</h3><span class="badge">${data.confidence.label}</span></div>
-        <div class="card-body">
-          <p class="conclusion">Nível máximo contido: ${a.nivel_maximo_contido_m} m</p>
-          <table class="evidence">
-            <tr><th>Nível de água</th><th>Área</th><th>Volume</th></tr>
-            ${linhasCurva}
-          </table>
-          <p style="font-size:0.8rem; color:var(--muted); margin-top:10px;"><strong>Confiança:</strong> ${data.confidence.reason}</p>
-          <div class="limitations">${data.limitations.join(' ')}</div>
-        </div>
-      </div>
-      <button id="btn-nova-bacia" class="charca-btn">Detetar noutro ponto</button>
-    `;
-    document.getElementById('btn-nova-bacia').addEventListener('click', () => {
-      panel.innerHTML = `<div class="hint"><strong>Deteção automática de bacia</strong><br>Clica dentro de um vale ou depressão do terreno.</div>`;
-    });
-  }
-
-
   function renderCharcaInstrucoes() {
-    const passos = [
-      'Clica no mapa no <strong>primeiro ponto da barreira</strong> (numa margem do vale).',
-      'Clica no <strong>segundo ponto da barreira</strong> (a outra margem do vale, do outro lado).',
-      'Clica num <strong>ponto a montante</strong> (dentro do vale, onde a água se vai acumular).',
-    ];
-    panel.innerHTML = `
-      <div class="hint">
-        <strong>Modo Charca — passo ${charcaPontos.length + 1} de 3</strong><br>
-        ${passos[charcaPontos.length]}
-      </div>
-    `;
+    if (charcaFase === 'barreira') {
+      panel.innerHTML = `
+        <div class="hint">
+          <strong>Modo Charca — a desenhar a barreira (${charcaBarreira.length} ponto${charcaBarreira.length === 1 ? '' : 's'})</strong><br>
+          Clica no mapa para ires marcando os pontos da barreira, de uma margem do vale à outra
+          (podes usar mais do que 2 pontos, para uma barreira em arco/curva).
+        </div>
+        ${charcaBarreira.length >= 2 ? '<button id="btn-fechar-barreira" class="charca-btn">Fechar barreira</button>' : ''}
+      `;
+      if (charcaBarreira.length >= 2) {
+        document.getElementById('btn-fechar-barreira').addEventListener('click', () => {
+          charcaFase = 'montante';
+          renderCharcaInstrucoes();
+        });
+      }
+    } else if (charcaFase === 'montante') {
+      panel.innerHTML = `
+        <div class="hint">
+          <strong>Barreira fechada.</strong><br>
+          Agora clica num <strong>ponto a montante</strong> (dentro do vale, onde a água se vai acumular).
+        </div>
+      `;
+    }
   }
 
   function handleCliqueCharca(lat, lng) {
-    charcaPontos.push([lat, lng]);
-    const cor = charcaPontos.length < 3 ? 'red' : 'blue';
-    const marcador = L.circleMarker([lat, lng], { radius: 7, color: cor, fillColor: cor, fillOpacity: 0.8 }).addTo(map);
-    charcaLayers.push(marcador);
-
-    if (charcaPontos.length === 2) {
-      const linha = L.polyline([charcaPontos[0], charcaPontos[1]], { color: 'red', weight: 3 }).addTo(map);
-      charcaLayers.push(linha);
-    }
-
-    if (charcaPontos.length < 3) {
+    if (charcaFase === 'barreira') {
+      charcaBarreira.push([lat, lng]);
+      const marcador = L.circleMarker([lat, lng], { radius: 7, color: 'red', fillColor: 'red', fillOpacity: 0.8 }).addTo(map);
+      charcaLayers.push(marcador);
+      if (charcaBarreira.length >= 2) {
+        if (charcaLayers._linhaBarreira) map.removeLayer(charcaLayers._linhaBarreira);
+        const linha = L.polyline(charcaBarreira, { color: 'red', weight: 3 }).addTo(map);
+        charcaLayers.push(linha);
+        charcaLayers._linhaBarreira = linha;
+      }
       renderCharcaInstrucoes();
-    } else {
+    } else if (charcaFase === 'montante') {
+      charcaMontante = [lat, lng];
+      const marcador = L.circleMarker([lat, lng], { radius: 7, color: 'blue', fillColor: 'blue', fillOpacity: 0.8 }).addTo(map);
+      charcaLayers.push(marcador);
+      charcaFase = 'pronto';
       renderCharcaFormulario();
     }
   }
@@ -617,8 +613,8 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          barreira: [charcaPontos[0], charcaPontos[1]],
-          montante: charcaPontos[2],
+          barreira: charcaBarreira,
+          montante: charcaMontante,
           altura: altura,
         }),
       });
@@ -688,10 +684,6 @@
       handleCliqueCharca(lat, lng);
       return;
     }
-    if (charcaAutoModoAtivo) {
-      handleCliqueCharcaAuto(lat, lng);
-      return;
-    }
     if (terraplanagemModoAtivo) {
       handleCliqueTerraplanagem(lat, lng);
       return;
@@ -704,19 +696,21 @@
     // Agora falamos só com o NOSSO backend -- ele é que sabe falar com
     // Silves, com o PVGIS e com o EU-DEM. O browser já não precisa de
     // conhecer nenhum desses serviços diretamente.
-    const [juridicoResult, solarResult, agricolaResult, hidricoResult] = await Promise.allSettled([
+    const [juridicoResult, solarResult, agricolaResult, hidricoResult, ambientalResult] = await Promise.allSettled([
       fetch(`/api/motor-juridico?lat=${lat}&lon=${lng}`).then(r => r.json()),
       fetch(`/api/motor-solar?lat=${lat}&lon=${lng}`).then(r => r.json()),
       fetch(`/api/motor-agricola?lat=${lat}&lon=${lng}`).then(r => r.json()),
       fetch(`/api/motor-hidrico?lat=${lat}&lon=${lng}`).then(r => r.json()),
+      fetch(`/api/motor-ambiental?lat=${lat}&lon=${lng}`).then(r => r.json()),
     ]);
 
     const juridico = juridicoResult.status === 'fulfilled' ? juridicoResult.value : { erro: String(juridicoResult.reason) };
     const solar = solarResult.status === 'fulfilled' ? solarResult.value : { erro: String(solarResult.reason) };
     const agricola = agricolaResult.status === 'fulfilled' ? agricolaResult.value : { erro: String(agricolaResult.reason) };
     const hidrico = hidricoResult.status === 'fulfilled' ? hidricoResult.value : { erro: String(hidricoResult.reason) };
+    const ambiental = ambientalResult.status === 'fulfilled' ? ambientalResult.value : { erro: String(ambientalResult.reason) };
 
-    renderResults(lat, lng, juridico, solar, agricola, hidrico);
+    renderResults(lat, lng, juridico, solar, agricola, hidrico, ambiental);
   });
 
   function renderLoading(lat, lon) {
@@ -737,7 +731,7 @@
     return 'baixa';
   }
 
-  function renderResults(lat, lon, juridico, solar, agricola, hidrico) {
+  function renderResults(lat, lon, juridico, solar, agricola, hidrico, ambiental) {
     // --- Identidade da parcela ---
     let identidadeHtml;
     const ip = juridico && juridico.identidade_parcela;
@@ -884,6 +878,40 @@
         <div class="locked-note">Erro ao consultar: ${hidrico && (hidrico.erro || (hidrico.confidence && hidrico.confidence.reason)) || 'desconhecido'}</div></div>`;
     }
 
+    // --- Motor Ambiental ---
+    let ambientalHtml;
+    if (zonaProtecaoLayer) { map.removeLayer(zonaProtecaoLayer); zonaProtecaoLayer = null; }
+    if (ambiental && ambiental.answer) {
+      const amb = ambiental.answer;
+      const confClass = confClassFromLabel(ambiental.confidence.label);
+      if (amb.zona_protecao) {
+        zonaProtecaoLayer = L.circle(amb.zona_protecao.centro, {
+          radius: amb.zona_protecao.raio_m, color: '#c0392b', weight: 2, fillOpacity: 0.08, dashArray: '6,4'
+        }).addTo(map);
+      }
+      ambientalHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Motor Ambiental</h3><span class="badge">implementado</span></div>
+          <div class="card-body" style="display:flex; gap:12px;">
+            <div class="stamp ${confClass}">${ambiental.confidence.label}<br>confiança</div>
+            <div style="flex:1;">
+              <p class="conclusion">${amb.classe_risco_incendio || 'Classe de risco não determinada'}</p>
+              <div class="field-row"><span class="k">Já ardeu antes</span><span class="v">${amb.ja_ardeu_antes ? 'Sim' : 'Não (nesta camada)'}</span></div>
+              <div class="field-row"><span class="k">Faixa de gestão de combustível</span><span class="v">${amb.faixa_gestao_combustivel_m ? amb.faixa_gestao_combustivel_m + ' m (desenhada no mapa)' : 'Não aplicável / não determinada'}</span></div>
+              <div class="field-row"><span class="k">Estrada mais próxima</span><span class="v">${amb.distancia_estrada_mais_proxima_m != null ? amb.distancia_estrada_mais_proxima_m + ' m' : 'Não encontrada perto'}</span></div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:0;">
+            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Obrigação legal:</strong> ${amb.motivo_faixa}</p>
+            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Confiança:</strong> ${ambiental.confidence.reason}</p>
+            <div class="limitations">${ambiental.limitations.join(' ')}</div>
+          </div>
+        </div>`;
+    } else {
+      ambientalHtml = `<div class="engine-card"><div class="card-head"><h3>Motor Ambiental</h3></div>
+        <div class="locked-note">Erro ao consultar: ${ambiental && (ambiental.erro || (ambiental.confidence && ambiental.confidence.reason)) || 'desconhecido'}</div></div>`;
+    }
+
     panel.innerHTML = `
       <div class="dossier-header">
         <span class="ref">PROCESSO ${refNumber(lat, lon)}</span>
@@ -894,7 +922,7 @@
       ${solarHtml}
       ${agricolaHtml}
       ${hidricoHtml}
-      ${lockedEngineCard("Motor Ambiental", "Riscos naturais agregados e sensibilidade ecológica.")}
+      ${ambientalHtml}
     `;
   }
 

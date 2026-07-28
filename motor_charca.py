@@ -163,6 +163,18 @@ def amostrar_linha(mosaico, p1, p2, n=200):
     return celulas
 
 
+def amostrar_poligonal(mosaico, pontos, n_por_segmento=200):
+    """Amostra elevacoes ao longo de uma linha poligonal com varios pontos
+    (permite barreiras em arco/curva, nao so uma reta entre 2 pontos --
+    cada par de pontos consecutivos e tratado como mais um segmento reto)."""
+    if len(pontos) < 2:
+        raise ValueError("A barreira precisa de pelo menos 2 pontos.")
+    celulas = set()
+    for p1, p2 in zip(pontos[:-1], pontos[1:]):
+        celulas |= amostrar_linha(mosaico, p1, p2, n=n_por_segmento)
+    return celulas
+
+
 def calcular_bacia_natural(mosaico, seed_latlon, incremento_registo=0.25, max_celulas=25000):
     """Cresce uma bacia a partir de um unico ponto (seed), sempre pela celula
     disponivel mais baixa a seguir (algoritmo 'priority flood', tecnica
@@ -252,12 +264,17 @@ def calcular_bacia_natural(mosaico, seed_latlon, incremento_registo=0.25, max_ce
     }
 
 
-def calcular_charca(mosaico, barreira_p1, barreira_p2, montante, altura_barragem):
-    E1, N1 = latlon_para_en(*barreira_p1)
-    E2, N2 = latlon_para_en(*barreira_p2)
-    comprimento_barreira_m = math.sqrt((E2 - E1) ** 2 + (N2 - N1) ** 2)
+def calcular_charca(mosaico, barreira_pontos, montante, altura_barragem):
+    if len(barreira_pontos) < 2:
+        raise ValueError("A barreira precisa de pelo menos 2 pontos.")
 
-    barreira_celulas = amostrar_linha(mosaico, barreira_p1, barreira_p2)
+    comprimento_barreira_m = 0.0
+    for p1, p2 in zip(barreira_pontos[:-1], barreira_pontos[1:]):
+        E1, N1 = latlon_para_en(*p1)
+        E2, N2 = latlon_para_en(*p2)
+        comprimento_barreira_m += math.sqrt((E2 - E1) ** 2 + (N2 - N1) ** 2)
+
+    barreira_celulas = amostrar_poligonal(mosaico, barreira_pontos)
     if not barreira_celulas:
         raise ValueError("A linha da barreira cai fora da area coberta pelos ficheiros.")
 
@@ -424,7 +441,7 @@ def montar_conclusao_auto(ponto, path_norte=TIF_NORTE_DEFAULT, path_sul=TIF_SUL_
     }
 
 
-def montar_conclusao(barreira_p1, barreira_p2, montante, altura_barragem,
+def montar_conclusao(barreira_pontos, montante, altura_barragem,
                       path_norte=TIF_NORTE_DEFAULT, path_sul=TIF_SUL_DEFAULT):
     limitations = [
         "Calculo geometrico sobre o MDT LiDAR (2m) -- nao substitui um projeto "
@@ -435,7 +452,7 @@ def montar_conclusao(barreira_p1, barreira_p2, montante, altura_barragem,
         "teria de confirmar isso no terreno.",
     ]
     try:
-        resultado = calcular_charca(_obter_mosaico(path_norte, path_sul), barreira_p1, barreira_p2, montante, altura_barragem)
+        resultado = calcular_charca(_obter_mosaico(path_norte, path_sul), barreira_pontos, montante, altura_barragem)
     except Exception as e:
         return {
             "engine": "Charca",

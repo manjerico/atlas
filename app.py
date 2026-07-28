@@ -23,6 +23,9 @@ import motor_agricola
 import motor_hidrico
 import motor_charca
 import motor_terraplanagem
+import direcao_agua
+import direcao_agua
+import motor_ambiental
 
 app = Flask(__name__)
 
@@ -89,33 +92,18 @@ def api_motor_hidrico():
 def api_motor_charca():
     dados = request.get_json(force=True, silent=True) or {}
     try:
-        barreira = dados["barreira"]  # [[lat,lon],[lat,lon]]
+        barreira = dados["barreira"]  # [[lat,lon], [lat,lon], ...] -- 2 ou mais pontos
         montante = dados["montante"]  # [lat,lon]
         altura = float(dados["altura"])
-        p1 = (float(barreira[0][0]), float(barreira[0][1]))
-        p2 = (float(barreira[1][0]), float(barreira[1][1]))
+        pontos = [(float(p[0]), float(p[1])) for p in barreira]
+        if len(pontos) < 2:
+            raise ValueError
         m = (float(montante[0]), float(montante[1]))
     except (KeyError, IndexError, TypeError, ValueError):
-        return jsonify({"erro": "Corpo inválido. Esperado: {barreira:[[lat,lon],[lat,lon]], montante:[lat,lon], altura:number}"}), 400
+        return jsonify({"erro": "Corpo inválido. Esperado: {barreira:[[lat,lon],[lat,lon],...], montante:[lat,lon], altura:number}"}), 400
 
     try:
-        resultado = motor_charca.montar_conclusao(p1, p2, m, altura)
-        return jsonify(resultado)
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 502
-
-
-@app.route("/api/motor-charca-auto", methods=["POST"])
-def api_motor_charca_auto():
-    dados = request.get_json(force=True, silent=True) or {}
-    try:
-        ponto = dados["ponto"]  # [lat, lon]
-        p = (float(ponto[0]), float(ponto[1]))
-    except (KeyError, IndexError, TypeError, ValueError):
-        return jsonify({"erro": "Corpo inválido. Esperado: {ponto:[lat,lon]}"}), 400
-
-    try:
-        resultado = motor_charca.montar_conclusao_auto(p)
+        resultado = motor_charca.montar_conclusao(pontos, m, altura)
         return jsonify(resultado)
     except Exception as e:
         return jsonify({"erro": str(e)}), 502
@@ -132,6 +120,38 @@ def api_motor_terraplanagem():
 
     try:
         resultado = motor_terraplanagem.montar_conclusao(pontos)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
+@app.route("/api/motor-ambiental")
+def api_motor_ambiental():
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if lat is None or lon is None:
+        return jsonify({"erro": "Parâmetros 'lat' e 'lon' são obrigatórios"}), 400
+    try:
+        resultado = motor_ambiental.montar_conclusao(lat, lon)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
+@app.route("/api/linhas-agua-direcao")
+def api_linhas_agua_direcao():
+    try:
+        xmin = request.args.get("xmin", type=float)
+        ymin = request.args.get("ymin", type=float)
+        xmax = request.args.get("xmax", type=float)
+        ymax = request.args.get("ymax", type=float)
+        if None in (xmin, ymin, xmax, ymax):
+            return jsonify({"erro": "Parâmetros xmin,ymin,xmax,ymax obrigatórios"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"erro": "Parâmetros inválidos"}), 400
+
+    try:
+        resultado = direcao_agua.calcular_direcoes(xmin, ymin, xmax, ymax)
         return jsonify(resultado)
     except Exception as e:
         return jsonify({"erro": str(e)}), 502
