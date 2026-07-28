@@ -248,47 +248,6 @@
     setaAguaLayers = [];
   }
 
-  document.getElementById('btn-sentido-agua').addEventListener('click', async () => {
-    setaAguaAtiva = !setaAguaAtiva;
-    const btn = document.getElementById('btn-sentido-agua');
-    limparSetasAgua();
-    if (!setaAguaAtiva) {
-      btn.textContent = '➡️ Sentido da água (vista atual)';
-      btn.classList.remove('ativo');
-      return;
-    }
-    btn.textContent = 'A calcular…';
-    const b = map.getBounds();
-    const params = new URLSearchParams({
-      xmin: b.getWest(), ymin: b.getSouth(), xmax: b.getEast(), ymax: b.getNorth(),
-    });
-    try {
-      const data = await fetch(`/api/linhas-agua-direcao?${params.toString()}`).then(r => r.json());
-      (data.linhas || []).forEach(l => {
-        const linha = L.polyline([l.origem, l.destino], { color: '#1a5fb4', weight: 2, opacity: 0.8 }).addTo(map);
-        setaAguaLayers.push(linha);
-        const meio = [(l.origem[0] + l.destino[0]) / 2, (l.origem[1] + l.destino[1]) / 2];
-        const bearing = bearingEntrePontos(l.origem[0], l.origem[1], l.destino[0], l.destino[1]);
-        const seta = L.marker(meio, {
-          icon: L.divIcon({
-            className: '', iconSize: [20, 20], iconAnchor: [10, 10],
-            html: `<div style="font-size:18px; color:#1a5fb4; transform:rotate(${bearing}deg); transform-origin:center;">➤</div>`,
-          }),
-        }).addTo(map);
-        setaAguaLayers.push(seta);
-      });
-      btn.textContent = `✕ Sentido da água (${(data.linhas || []).length} linhas)`;
-      btn.classList.add('ativo');
-      if (data.aviso) {
-        const avisoEl = document.getElementById('busca-resultado');
-        if (avisoEl) avisoEl.textContent = data.aviso;
-      }
-    } catch (e) {
-      btn.textContent = '➡️ Sentido da água (vista atual)';
-      setaAguaAtiva = false;
-    }
-  });
-
   // ----- Pesquisa de parcela: dropdowns em cascata (Freguesia -> Secção -> Prédio) -----
   let parcelaEncontradaLayer = null;
 
@@ -405,6 +364,47 @@
     }
   });
   map.addControl(new CharcaControl());
+
+  document.getElementById('btn-sentido-agua').addEventListener('click', async () => {
+    setaAguaAtiva = !setaAguaAtiva;
+    const btn = document.getElementById('btn-sentido-agua');
+    limparSetasAgua();
+    if (!setaAguaAtiva) {
+      btn.textContent = '➡️ Sentido da água (vista atual)';
+      btn.classList.remove('ativo');
+      return;
+    }
+    btn.textContent = 'A calcular…';
+    const b = map.getBounds();
+    const params = new URLSearchParams({
+      xmin: b.getWest(), ymin: b.getSouth(), xmax: b.getEast(), ymax: b.getNorth(),
+    });
+    try {
+      const data = await fetch(`/api/linhas-agua-direcao?${params.toString()}`).then(r => r.json());
+      (data.linhas || []).forEach(l => {
+        const linha = L.polyline([l.origem, l.destino], { color: '#1a5fb4', weight: 2, opacity: 0.8 }).addTo(map);
+        setaAguaLayers.push(linha);
+        const meio = [(l.origem[0] + l.destino[0]) / 2, (l.origem[1] + l.destino[1]) / 2];
+        const bearing = bearingEntrePontos(l.origem[0], l.origem[1], l.destino[0], l.destino[1]);
+        const seta = L.marker(meio, {
+          icon: L.divIcon({
+            className: '', iconSize: [20, 20], iconAnchor: [10, 10],
+            html: `<div style="font-size:18px; color:#1a5fb4; transform:rotate(${bearing}deg); transform-origin:center;">➤</div>`,
+          }),
+        }).addTo(map);
+        setaAguaLayers.push(seta);
+      });
+      btn.textContent = `✕ Sentido da água (${(data.linhas || []).length} linhas)`;
+      btn.classList.add('ativo');
+      if (data.aviso) {
+        const avisoEl = document.getElementById('busca-resultado');
+        if (avisoEl) avisoEl.textContent = data.aviso;
+      }
+    } catch (e) {
+      btn.textContent = '➡️ Sentido da água (vista atual)';
+      setaAguaAtiva = false;
+    }
+  });
 
   function limparCharca() {
     charcaLayers.forEach(l => map.removeLayer(l));
