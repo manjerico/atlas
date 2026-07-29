@@ -870,6 +870,13 @@
               <div class="field-row"><span class="k">Pontos de água (LNEG, 1km)</span><span class="v">${h.pontos_agua_subterranea.total_no_raio} — ${Object.entries(h.pontos_agua_subterranea.por_tipo).map(([t,n]) => `${n} ${t}`).join(', ') || 'nenhum'}</span></div>
             </div>
           </div>
+          ${h.contexto_regional_agua_subterranea ? `
+          <div class="card-body" style="padding-top:0;">
+            <div class="sub-heading">Contexto regional (raio de ${h.contexto_regional_agua_subterranea.raio_km}km — não é uma previsão para esta parcela)</div>
+            <div class="field-row"><span class="k">Pontos inventariados</span><span class="v">${h.contexto_regional_agua_subterranea.total_pontos_inventariados} (${h.contexto_regional_agua_subterranea.densidade_pontos_por_km2}/km²)</span></div>
+            <div class="field-row"><span class="k">Uso predominante</span><span class="v">${Object.entries(h.contexto_regional_agua_subterranea.distribuicao_uso).slice(0,3).map(([u,n]) => `${u} (${n})`).join(', ') || 'sem dados'}</span></div>
+            <div class="field-row"><span class="k">% uso agrícola/pecuário</span><span class="v">${h.contexto_regional_agua_subterranea.percentagem_uso_agricola != null ? h.contexto_regional_agua_subterranea.percentagem_uso_agricola + '%' : '—'}</span></div>
+          </div>` : ''}
           <div class="card-body" style="padding-top:0;">
             <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Confiança:</strong> ${hidrico.confidence.reason}</p>
             <div class="limitations">${hidrico.limitations.join(' ')}</div>
