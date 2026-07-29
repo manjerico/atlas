@@ -264,6 +264,46 @@ def calcular_bacia_natural(mosaico, seed_latlon, incremento_registo=0.25, max_ce
     }
 
 
+def amostrar_poligonal_com_posicao(mosaico, pontos, n_por_segmento=200):
+    """Como amostrar_poligonal, mas devolve tambem a lista ORDENADA de
+    (row, col, distancia_acumulada_m) ao longo da barreira -- para depois
+    conseguirmos identificar que troço da barreira e realmente util
+    (esta em contacto com a agua) e sugerir uma barreira mais curta."""
+    amostras = []
+    dist_acumulada = 0.0
+    for p1, p2 in zip(pontos[:-1], pontos[1:]):
+        E1, N1 = latlon_para_en(*p1)
+        E2, N2 = latlon_para_en(*p2)
+        comprimento_segmento = math.sqrt((E2 - E1) ** 2 + (N2 - N1) ** 2)
+        r1, c1 = mosaico.latlon_para_pixel(*p1)
+        r2, c2 = mosaico.latlon_para_pixel(*p2)
+        for i in range(n_por_segmento + 1):
+            t = i / n_por_segmento
+            row = round(r1 + t * (r2 - r1))
+            col = round(c1 + t * (c2 - c1))
+            dist = dist_acumulada + t * comprimento_segmento
+            if mosaico.dentro(row, col):
+                amostras.append((row, col, dist))
+        dist_acumulada += comprimento_segmento
+    return amostras
+
+
+def ponto_a_distancia_na_poligonal(pontos, distancia_alvo_m):
+    """Devolve o ponto lat/lon que fica a 'distancia_alvo_m' ao longo da
+    poligonal definida por 'pontos' (interpola dentro do segmento certo)."""
+    dist_acumulada = 0.0
+    for p1, p2 in zip(pontos[:-1], pontos[1:]):
+        E1, N1 = latlon_para_en(*p1)
+        E2, N2 = latlon_para_en(*p2)
+        comprimento_segmento = math.sqrt((E2 - E1) ** 2 + (N2 - N1) ** 2)
+        if dist_acumulada + comprimento_segmento >= distancia_alvo_m or math.isclose(comprimento_segmento, 0):
+            t = 0.0 if comprimento_segmento == 0 else (distancia_alvo_m - dist_acumulada) / comprimento_segmento
+            t = max(0.0, min(1.0, t))
+            return (p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1]))
+        dist_acumulada += comprimento_segmento
+    return pontos[-1]
+
+
 def calcular_charca(mosaico, barreira_pontos, montante, altura_barragem):
     if len(barreira_pontos) < 2:
         raise ValueError("A barreira precisa de pelo menos 2 pontos.")
@@ -274,7 +314,8 @@ def calcular_charca(mosaico, barreira_pontos, montante, altura_barragem):
         E2, N2 = latlon_para_en(*p2)
         comprimento_barreira_m += math.sqrt((E2 - E1) ** 2 + (N2 - N1) ** 2)
 
-    barreira_celulas = amostrar_poligonal(mosaico, barreira_pontos)
+    amostras_barreira = amostrar_poligonal_com_posicao(mosaico, barreira_pontos)
+    barreira_celulas = {(r, c) for r, c, _ in amostras_barreira}
     if not barreira_celulas:
         raise ValueError("A linha da barreira cai fora da area coberta pelos ficheiros.")
 
@@ -317,11 +358,36 @@ def calcular_charca(mosaico, barreira_pontos, montante, altura_barragem):
     volume_m3 = float(profundidades.sum() * area_celula)
     profundidade_max = float(profundidades.max()) if n_celulas else 0.0
 
+    # Que troco da barreira desenhada esta mesmo em contacto com a agua
+    # inundada? O resto nao esta a bloquear nada, e dispensavel.
+    n_linhas_grid, n_cols_grid = mosaico.grid.shape
+
+    def adjacente_a_inundacao(row, col):
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                nr, nc = row + dr, col + dc
+                if 0 <= nr < n_linhas_grid and 0 <= nc < n_cols_grid and visitado[nr, nc]:
+                    return True
+        return False
+
+    posicoes_uteis = [dist for (row, col, dist) in amostras_barreira if adjacente_a_inundacao(row, col)]
+
+    barreira_otimizada = None
+    comprimento_barreira_util_m = None
+    if posicoes_uteis:
+        dist_min, dist_max = min(posicoes_uteis), max(posicoes_uteis)
+        p_inicio = ponto_a_distancia_na_poligonal(barreira_pontos, dist_min)
+        p_fim = ponto_a_distancia_na_poligonal(barreira_pontos, dist_max)
+        comprimento_barreira_util_m = dist_max - dist_min
+        barreira_otimizada = [p_inicio, p_fim]
+
     imagem_base64, bounds = _gerar_imagem_mancha(mosaico, visitado)
 
     return {
         "cota_barreira_m": round(float(cota_barreira), 2),
         "comprimento_barreira_m": round(comprimento_barreira_m, 1),
+        "comprimento_barreira_util_m": round(comprimento_barreira_util_m, 1) if comprimento_barreira_util_m is not None else None,
+        "barreira_otimizada": barreira_otimizada,
         "nivel_agua_m": round(float(nivel_agua), 2),
         "area_inundada_m2": round(area_m2, 1),
         "area_inundada_ha": round(area_m2 / 10000, 3),

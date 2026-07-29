@@ -650,6 +650,13 @@
       charcaLayers.push(mancheOverlay);  // é removida da próxima vez que limparCharca() correr
     }
 
+    // Barreira otimizada (troço realmente útil), desenhada a verde por
+    // cima da barreira original desenhada a vermelho
+    if (a.barreira_otimizada) {
+      const linhaOtimizada = L.polyline(a.barreira_otimizada, { color: '#2e7d32', weight: 4, dashArray: '6 4' }).addTo(map);
+      charcaLayers.push(linhaOtimizada);
+    }
+
     panel.innerHTML = `
       <div class="engine-card">
         <div class="card-head"><h3>Motor Charca</h3><span class="badge">implementado</span></div>
@@ -657,7 +664,10 @@
           <div class="stamp ${confClass}">${data.confidence.label}<br>confiança</div>
           <div style="flex:1;">
             <p class="conclusion">${a.volume_m3.toLocaleString('pt-PT')} m³ represados</p>
-            <div class="field-row"><span class="k">Comprimento da barreira</span><span class="v">${a.comprimento_barreira_m} m</span></div>
+            <div class="field-row"><span class="k">Comprimento desenhado</span><span class="v">${a.comprimento_barreira_m} m</span></div>
+            ${a.comprimento_barreira_util_m != null ? `
+            <div class="field-row"><span class="k">Comprimento realmente útil</span><span class="v" style="color:#2e7d32; font-weight:600;">${a.comprimento_barreira_util_m} m</span></div>
+            <div class="field-row"><span class="k">Poupança possível</span><span class="v">${(a.comprimento_barreira_m - a.comprimento_barreira_util_m).toFixed(1)} m</span></div>` : ''}
             <div class="field-row"><span class="k">Área inundada</span><span class="v">${a.area_inundada_ha} ha</span></div>
             <div class="field-row"><span class="k">Nível de água</span><span class="v">${a.nivel_agua_m} m</span></div>
             <div class="field-row"><span class="k">Profundidade máxima</span><span class="v">${a.profundidade_maxima_m} m</span></div>
