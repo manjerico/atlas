@@ -129,6 +129,19 @@
   #legenda-ran-ren label{display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer; white-space:nowrap;}
   #legenda-ran-ren .swatch{display:flex; align-items:center; gap:4px; white-space:nowrap;}
   #legenda-ran-ren .swatch-color{width:11px; height:11px; border-radius:2px; flex-shrink:0; border:1px solid rgba(255,255,255,0.4);}
+
+  #modal-3d{
+    display:none; position:fixed; inset:0; z-index:2000;
+    background:#0a0f0d; flex-direction:column;
+  }
+  #modal-3d.aberto{ display:flex; }
+  #modal-3d-topbar{
+    display:flex; align-items:center; gap:16px; padding:10px 16px;
+    background:var(--teal-dark); color:var(--paper); font-family:var(--font-body); font-size:0.85rem;
+  }
+  #modal-3d-topbar span:nth-child(2){ flex:1; color:#cfe3dc; font-family:var(--font-mono); font-size:0.78rem; }
+  #canvas-3d-container{ flex:1; position:relative; }
+  #canvas-3d-container canvas{ display:block; }
 </style>
 </head>
 <body>
@@ -158,15 +171,24 @@
         e clica dentro de uma. O Atlas consulta agora o <strong>backend próprio</strong>
         (que por sua vez fala com o SIG de Silves e com o PVGIS/EU-DEM) e devolve a
         análise dos motores <strong>Jurídico</strong>, <strong>Energético</strong>,
-        <strong>Agronómico</strong> e <strong>Hídrico</strong> — o Ambiental aparece
-        já na estrutura, mas ainda não está implementado.
+        <strong>Agronómico</strong>, <strong>Hídrico</strong> e <strong>Ambiental</strong>.
       </div>
     </div>
   </main>
+  <div id="modal-3d">
+    <div id="modal-3d-topbar">
+      <span>Vista 3D do terreno (zona com dados LiDAR)</span>
+      <span id="info-3d">Clica no terreno para ver a coordenada</span>
+      <button id="btn-fechar-3d" class="charca-btn">✕ Fechar</button>
+    </div>
+    <div id="canvas-3d-container"></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/esri-leaflet/3.1.0/esri-leaflet.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
   // Camadas visuais (decorativas, direto do browser -- não são o motor
   // jurídico a decidir nada, são só o mesmo desenho que o SIG oficial usa).
@@ -358,6 +380,7 @@
         <button id="btn-charca" class="charca-btn">💧 Calcular charca (manual)</button>
         <button id="btn-terraplanagem" class="charca-btn" style="margin-top:6px;">⛏️ Calcular terraplanagem</button>
         <button id="btn-sentido-agua" class="charca-btn" style="margin-top:6px;">➡️ Sentido da água (vista atual)</button>
+        <button id="btn-ver-3d" class="charca-btn" style="margin-top:6px;">🗻 Ver em 3D</button>
       `;
       L.DomEvent.disableClickPropagation(div);
       return div;
@@ -404,6 +427,169 @@
       btn.textContent = '➡️ Sentido da água (vista atual)';
       setaAguaAtiva = false;
     }
+  });
+
+  // ----- Vista 3D do terreno (Three.js), zona com dados LiDAR -----
+  let dados3D = null;       // dados de elevacao recebidos do backend (cache)
+  let cena3D, camera3D, renderer3D, controlos3D, malha3D;
+  let animando3D = false;
+
+  function corPorElevacao(t) {
+    // Rampa hipsometrica simples: verde (baixo) -> amarelo/castanho (medio) -> branco (alto)
+    if (t < 0.5) {
+      const u = t / 0.5;
+      return new THREE.Color(0.25 + 0.35 * u, 0.55 - 0.05 * u, 0.15);
+    } else {
+      const u = (t - 0.5) / 0.5;
+      return new THREE.Color(0.60 + 0.35 * u, 0.50 + 0.30 * u, 0.30 + 0.55 * u);
+    }
+  }
+
+  function construirMalha3D(dados) {
+    const { n_linhas, n_cols, pixel_m, elevacoes, elevacao_min, elevacao_max } = dados;
+    const exagero = 1.6; // ligeiro exagero vertical, terreno real fica visualmente "achatado" senao
+    const geometria = new THREE.BufferGeometry();
+    const posicoes = new Float32Array(n_linhas * n_cols * 3);
+    const cores = new Float32Array(n_linhas * n_cols * 3);
+
+    let idx = 0;
+    for (let row = 0; row < n_linhas; row++) {
+      for (let col = 0; col < n_cols; col++) {
+        const elev = elevacoes[row][col];
+        const x = col * pixel_m;
+        const z = row * pixel_m;
+        const y = (elev - elevacao_min) * exagero;
+        posicoes[idx * 3] = x;
+        posicoes[idx * 3 + 1] = y;
+        posicoes[idx * 3 + 2] = z;
+        const t = (elev - elevacao_min) / Math.max(1, (elevacao_max - elevacao_min));
+        const cor = corPorElevacao(t);
+        cores[idx * 3] = cor.r; cores[idx * 3 + 1] = cor.g; cores[idx * 3 + 2] = cor.b;
+        idx++;
+      }
+    }
+
+    const indices = [];
+    for (let row = 0; row < n_linhas - 1; row++) {
+      for (let col = 0; col < n_cols - 1; col++) {
+        const a = row * n_cols + col, b = a + 1, c = a + n_cols, d = c + 1;
+        indices.push(a, c, b,  b, c, d);
+      }
+    }
+
+    geometria.setIndex(indices);
+    geometria.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
+    geometria.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+    geometria.computeVertexNormals();
+
+    const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: false });
+    return new THREE.Mesh(geometria, material);
+  }
+
+  function pixelParaLatLon(dados, row, col) {
+    // Interpolacao bilinear entre os 4 cantos conhecidos -- aproximacao
+    // valida para a pequena area coberta pelo LiDAR (poucos km).
+    const fr = row / (dados.n_linhas - 1);
+    const fc = col / (dados.n_cols - 1);
+    const { noroeste, nordeste, sudoeste, sudeste } = dados.cantos;
+    const topo = [noroeste[0] + fc * (nordeste[0] - noroeste[0]), noroeste[1] + fc * (nordeste[1] - noroeste[1])];
+    const fundo = [sudoeste[0] + fc * (sudeste[0] - sudoeste[0]), sudoeste[1] + fc * (sudeste[1] - sudoeste[1])];
+    return [topo[0] + fr * (fundo[0] - topo[0]), topo[1] + fr * (fundo[1] - topo[1])];
+  }
+
+  async function abrirVista3D() {
+    const modal = document.getElementById('modal-3d');
+    modal.classList.add('aberto');
+    const infoEl = document.getElementById('info-3d');
+    infoEl.textContent = 'A carregar terreno…';
+
+    if (!dados3D) {
+      try {
+        dados3D = await fetch('/api/elevacao-3d').then(r => r.json());
+        if (dados3D.erro) throw new Error(dados3D.erro);
+      } catch (e) {
+        infoEl.textContent = `Erro ao carregar terreno: ${e}`;
+        return;
+      }
+    }
+
+    const container = document.getElementById('canvas-3d-container');
+    if (!cena3D) {
+      cena3D = new THREE.Scene();
+      cena3D.background = new THREE.Color(0x0a0f0d);
+
+      camera3D = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 1, 20000);
+
+      renderer3D = new THREE.WebGLRenderer({ antialias: true });
+      renderer3D.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer3D.domElement);
+
+      cena3D.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.8);
+      luzDirecional.position.set(500, 800, 300);
+      cena3D.add(luzDirecional);
+
+      controlos3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+      controlos3D.enableDamping = true;
+
+      renderer3D.domElement.addEventListener('click', (e) => {
+        const rect = renderer3D.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, camera3D);
+        const intersecoes = raycaster.intersectObject(malha3D);
+        if (intersecoes.length > 0) {
+          const p = intersecoes[0].point;
+          const col = p.x / dados3D.pixel_m;
+          const row = p.z / dados3D.pixel_m;
+          const [lat, lon] = pixelParaLatLon(dados3D, row, col);
+          const elevReal = dados3D.elevacao_min + p.y / 1.6;
+          document.getElementById('info-3d').textContent =
+            `lat ${lat.toFixed(6)}, lon ${lon.toFixed(6)} — elevação ≈ ${elevReal.toFixed(1)}m`;
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        if (!document.getElementById('modal-3d').classList.contains('aberto')) return;
+        camera3D.aspect = container.clientWidth / container.clientHeight;
+        camera3D.updateProjectionMatrix();
+        renderer3D.setSize(container.clientWidth, container.clientHeight);
+      });
+    }
+
+    if (malha3D) cena3D.remove(malha3D);
+    malha3D = construirMalha3D(dados3D);
+    // Centrar a malha na origem, para os controlos de orbita rodarem a volta do centro do terreno
+    const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
+    const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
+    malha3D.position.set(-largura / 2, 0, -profundidade / 2);
+    cena3D.add(malha3D);
+
+    const alturaMedia = ((dados3D.elevacao_max - dados3D.elevacao_min) * 1.6) / 2;
+    camera3D.position.set(0, Math.max(largura, profundidade) * 0.55, Math.max(largura, profundidade) * 0.55);
+    controlos3D.target.set(0, alturaMedia, 0);
+    controlos3D.update();
+
+    infoEl.textContent = 'Clica no terreno para ver a coordenada';
+
+    if (!animando3D) {
+      animando3D = true;
+      function animar() {
+        if (!document.getElementById('modal-3d').classList.contains('aberto')) { animando3D = false; return; }
+        requestAnimationFrame(animar);
+        controlos3D.update();
+        renderer3D.render(cena3D, camera3D);
+      }
+      animar();
+    }
+  }
+
+  document.getElementById('btn-ver-3d').addEventListener('click', abrirVista3D);
+  document.getElementById('btn-fechar-3d').addEventListener('click', () => {
+    document.getElementById('modal-3d').classList.remove('aberto');
   });
 
   function limparCharca() {
@@ -653,7 +839,7 @@
     // Barreira otimizada (troço realmente útil), desenhada a verde por
     // cima da barreira original desenhada a vermelho
     if (a.barreira_otimizada) {
-      const linhaOtimizada = L.polyline(a.barreira_otimizada, { color: '#2e7d32', weight: 4, dashArray: '6 4' }).addTo(map);
+      const linhaOtimizada = L.polyline(a.barreira_otimizada, { color: '#ff00ff', weight: 4, dashArray: '6 4' }).addTo(map);
       charcaLayers.push(linhaOtimizada);
     }
 

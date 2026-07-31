@@ -109,6 +109,17 @@ def api_motor_charca():
         return jsonify({"erro": str(e)}), 502
 
 
+@app.route("/api/elevacao-3d")
+def api_elevacao_3d():
+    try:
+        resultado = motor_charca.exportar_elevacao_3d(
+            motor_charca._obter_mosaico(motor_charca.TIF_NORTE_DEFAULT, motor_charca.TIF_SUL_DEFAULT)
+        )
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
 @app.route("/api/motor-terraplanagem", methods=["POST"])
 def api_motor_terraplanagem():
     dados = request.get_json(force=True, silent=True) or {}

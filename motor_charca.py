@@ -436,6 +436,33 @@ def _gerar_imagem_mancha(mosaico, visitado, margem_px=5):
     return imagem_base64, bounds
 
 
+def exportar_elevacao_3d(mosaico, fator_reducao=8):
+    """Exporta uma versao reduzida da grelha de elevacao (para nao pesar no
+    browser) mais os limites geograficos, para desenhar um terreno 3D no
+    frontend (Three.js). fator_reducao=8 e um bom equilibrio entre detalhe
+    e performance (grelha de ~1000x500 -> ~125x62 pontos)."""
+    grid_reduzido = mosaico.grid[::fator_reducao, ::fator_reducao]
+    n_linhas, n_cols = grid_reduzido.shape
+
+    lat_nw, lon_nw = mosaico.pixel_para_latlon(0, 0)
+    lat_ne, lon_ne = mosaico.pixel_para_latlon(0, (n_cols - 1) * fator_reducao)
+    lat_sw, lon_sw = mosaico.pixel_para_latlon((n_linhas - 1) * fator_reducao, 0)
+    lat_se, lon_se = mosaico.pixel_para_latlon((n_linhas - 1) * fator_reducao, (n_cols - 1) * fator_reducao)
+
+    return {
+        "n_linhas": n_linhas,
+        "n_cols": n_cols,
+        "pixel_m": mosaico.pixel * fator_reducao,
+        "elevacoes": grid_reduzido.round(1).tolist(),
+        "elevacao_min": float(grid_reduzido.min()),
+        "elevacao_max": float(grid_reduzido.max()),
+        "cantos": {
+            "noroeste": [lat_nw, lon_nw], "nordeste": [lat_ne, lon_ne],
+            "sudoeste": [lat_sw, lon_sw], "sudeste": [lat_se, lon_se],
+        },
+    }
+
+
 def _obter_mosaico(path_norte, path_sul):
     global _mosaico_cache
     if _mosaico_cache is None:
