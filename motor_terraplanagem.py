@@ -112,6 +112,22 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
     lat_ne, lon_ne = mosaico.pixel_para_latlon(r_min, c_max)
     bounds = [[lat_sw, lon_sw], [lat_ne, lon_ne]]
 
+    # Posicoes 3D reais das celulas de corte/aterro (nao um retangulo) --
+    # os indices do recorte tem de ser deslocados de volta para a grelha
+    # completa (+r_min, +c_min) antes de converter para metros.
+    def _celulas_recorte_para_3d(mascara_recorte, max_celulas=15000):
+        linhas, colunas = np.nonzero(mascara_recorte)
+        n = len(linhas)
+        if n == 0:
+            return []
+        if n > max_celulas:
+            passo = int(np.ceil(n / max_celulas))
+            linhas, colunas = linhas[::passo], colunas[::passo]
+        return [
+            {"x": float((c + c_min) * mosaico.pixel), "z": float((r + r_min) * mosaico.pixel)}
+            for r, c in zip(colunas, linhas)
+        ]
+
     return {
         "cota_alvo_m": round(cota_alvo, 2),
         "area_total_m2": round(area_total_m2, 1),
@@ -121,6 +137,9 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
         "saldo_m3": round(volume_corte - volume_aterro, 1),  # >0: sobra terra; <0: falta terra
         "mancha_imagem_png_base64": imagem_base64,
         "mancha_bounds": bounds,
+        "celulas_corte_3d": _celulas_recorte_para_3d(corte_mask),
+        "celulas_aterro_3d": _celulas_recorte_para_3d(aterro_mask),
+        "celulas_3d_tamanho_m": mosaico.pixel,
     }
 
 

@@ -382,6 +382,7 @@ def calcular_charca(mosaico, barreira_pontos, montante, altura_barragem):
         barreira_otimizada = [p_inicio, p_fim]
 
     imagem_base64, bounds = _gerar_imagem_mancha(mosaico, visitado)
+    celulas_3d = _celulas_para_3d(mosaico, visitado)
 
     return {
         "cota_barreira_m": round(float(cota_barreira), 2),
@@ -396,7 +397,28 @@ def calcular_charca(mosaico, barreira_pontos, montante, altura_barragem):
         "flood_atingiu_borda_dos_dados": tocou_borda,
         "mancha_imagem_png_base64": imagem_base64,
         "mancha_bounds": bounds,  # [[lat_sw, lon_sw], [lat_ne, lon_ne]]
+        "celulas_3d": celulas_3d,
+        "celulas_3d_tamanho_m": mosaico.pixel,
     }
+
+
+def _celulas_para_3d(mosaico, mascara, max_celulas=20000):
+    """Converte uma mascara booleana (ex: celulas inundadas, ou celulas de
+    corte/aterro) na lista de posicoes (x, z) reais dessas celulas, no
+    mesmo referencial usado por converter_pontos_3d -- para desenhar em 3D
+    seguindo a FORMA REAL da area (ex: o leito do vale), em vez de um
+    retangulo que cobre tambem encosta seca a volta."""
+    linhas, colunas = np.nonzero(mascara)
+    n = len(linhas)
+    if n == 0:
+        return []
+    if n > max_celulas:
+        passo = int(np.ceil(n / max_celulas))
+        linhas, colunas = linhas[::passo], colunas[::passo]
+    return [
+        {"x": float(c * mosaico.pixel), "z": float(r * mosaico.pixel)}
+        for r, c in zip(colunas, linhas)
+    ]
 
 
 def _gerar_imagem_mancha(mosaico, visitado, margem_px=5):
