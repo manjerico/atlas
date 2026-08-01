@@ -552,8 +552,13 @@
       geometriaPlano.computeVertexNormals();
 
       const textura = new THREE.TextureLoader().load(resultado.mancha_imagem_png_base64);
-      const material = new THREE.MeshBasicMaterial({ map: textura, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-      return new THREE.Mesh(geometriaPlano, material);
+      const material = new THREE.MeshBasicMaterial({
+        map: textura, transparent: true, side: THREE.DoubleSide,
+        depthWrite: false, depthTest: false,
+      });
+      const malhaPlano = new THREE.Mesh(geometriaPlano, material);
+      malhaPlano.renderOrder = 1;  // desenhar sempre depois (por cima) do terreno
+      return malhaPlano;
     }
 
     charcaPlano3D = await criarPlano(ultimaCharcaResultado, ultimaCharcaResultado ? ultimaCharcaResultado.nivel_agua_m : null);
