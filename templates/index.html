@@ -252,24 +252,6 @@
     atualizarCamadaRanRen(e.target.checked);
   });
 
-  // ----- Sentido da corrente de água (setas na vista atual) -----
-  let setaAguaLayers = [];
-  let setaAguaAtiva = false;
-
-  function bearingEntrePontos(lat1, lon1, lat2, lon2) {
-    const toRad = d => d * Math.PI / 180;
-    const dLon = toRad(lon2 - lon1);
-    const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-    const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-              Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-  }
-
-  function limparSetasAgua() {
-    setaAguaLayers.forEach(l => map.removeLayer(l));
-    setaAguaLayers = [];
-  }
-
   // ----- Pesquisa de parcela: dropdowns em cascata (Freguesia -> Secção -> Prédio) -----
   let parcelaEncontradaLayer = null;
 
@@ -379,7 +361,6 @@
       div.innerHTML = `
         <button id="btn-charca" class="charca-btn">💧 Calcular charca (manual)</button>
         <button id="btn-terraplanagem" class="charca-btn" style="margin-top:6px;">⛏️ Calcular terraplanagem</button>
-        <button id="btn-sentido-agua" class="charca-btn" style="margin-top:6px;">➡️ Sentido da água (vista atual)</button>
         <button id="btn-ver-3d" class="charca-btn" style="margin-top:6px;">🗻 Ver em 3D</button>
       `;
       L.DomEvent.disableClickPropagation(div);
@@ -388,49 +369,13 @@
   });
   map.addControl(new CharcaControl());
 
-  document.getElementById('btn-sentido-agua').addEventListener('click', async () => {
-    setaAguaAtiva = !setaAguaAtiva;
-    const btn = document.getElementById('btn-sentido-agua');
-    limparSetasAgua();
-    if (!setaAguaAtiva) {
-      btn.textContent = '➡️ Sentido da água (vista atual)';
-      btn.classList.remove('ativo');
-      return;
-    }
-    btn.textContent = 'A calcular…';
-    const b = map.getBounds();
-    const params = new URLSearchParams({
-      xmin: b.getWest(), ymin: b.getSouth(), xmax: b.getEast(), ymax: b.getNorth(),
-    });
-    try {
-      const data = await fetch(`/api/linhas-agua-direcao?${params.toString()}`).then(r => r.json());
-      (data.linhas || []).forEach(l => {
-        const linha = L.polyline([l.origem, l.destino], { color: '#1a5fb4', weight: 2, opacity: 0.8 }).addTo(map);
-        setaAguaLayers.push(linha);
-        const meio = [(l.origem[0] + l.destino[0]) / 2, (l.origem[1] + l.destino[1]) / 2];
-        const bearing = bearingEntrePontos(l.origem[0], l.origem[1], l.destino[0], l.destino[1]);
-        const seta = L.marker(meio, {
-          icon: L.divIcon({
-            className: '', iconSize: [20, 20], iconAnchor: [10, 10],
-            html: `<div style="font-size:18px; color:#1a5fb4; transform:rotate(${bearing}deg); transform-origin:center;">➤</div>`,
-          }),
-        }).addTo(map);
-        setaAguaLayers.push(seta);
-      });
-      btn.textContent = `✕ Sentido da água (${(data.linhas || []).length} linhas)`;
-      btn.classList.add('ativo');
-      if (data.aviso) {
-        const avisoEl = document.getElementById('busca-resultado');
-        if (avisoEl) avisoEl.textContent = data.aviso;
-      }
-    } catch (e) {
-      btn.textContent = '➡️ Sentido da água (vista atual)';
-      setaAguaAtiva = false;
-    }
-  });
-
   // ----- Vista 3D do terreno (Three.js), zona com dados LiDAR -----
   let dados3D = null;       // dados de elevacao recebidos do backend (cache)
+  let ultimaCharcaResultado = null;        // último resultado calculado (para desenhar em 3D)
+  let ultimaTerraplanagemResultado = null; // idem, para terraplanagem
+  let parcelasLayer3D = null;
+  let charcaPlano3D = null;
+  let terraplanagemPlano3D = null;
   let cena3D, camera3D, renderer3D, controlos3D, malha3D;
   let animando3D = false;
 
@@ -495,6 +440,127 @@
     const topo = [noroeste[0] + fc * (nordeste[0] - noroeste[0]), noroeste[1] + fc * (nordeste[1] - noroeste[1])];
     const fundo = [sudoeste[0] + fc * (sudeste[0] - sudoeste[0]), sudoeste[1] + fc * (sudeste[1] - sudoeste[1])];
     return [topo[0] + fr * (fundo[0] - topo[0]), topo[1] + fr * (fundo[1] - topo[1])];
+  }
+
+  async function carregarParcelas3D() {
+    if (parcelasLayer3D) { cena3D.remove(parcelasLayer3D); parcelasLayer3D = null; }
+
+    const { noroeste, nordeste, sudoeste, sudeste } = dados3D.cantos;
+    const lats = [noroeste[0], nordeste[0], sudoeste[0], sudeste[0]];
+    const lons = [noroeste[1], nordeste[1], sudoeste[1], sudeste[1]];
+    const xmin = Math.min(...lons), xmax = Math.max(...lons);
+    const ymin = Math.min(...lats), ymax = Math.max(...lats);
+
+    const params = new URLSearchParams({
+      geometry: `${xmin},${ymin},${xmax},${ymax}`,
+      geometryType: 'esriGeometryEnvelope', inSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects', outFields: 'OBJECTID',
+      returnGeometry: 'true', f: 'geojson',
+    });
+    let geo;
+    try {
+      geo = await fetch(`${CADASTRO_URL}/${CADASTRO_PREDIO_LAYER_ID}/query?${params.toString()}`).then(r => r.json());
+    } catch (e) { return; }
+    const features = geo.features || [];
+    if (features.length === 0) return;
+
+    const aneis = [];
+    for (const f of features) {
+      const geomFeat = f.geometry;
+      if (!geomFeat) continue;
+      const poligonos = geomFeat.type === 'Polygon' ? [geomFeat.coordinates]
+                       : geomFeat.type === 'MultiPolygon' ? geomFeat.coordinates : [];
+      for (const poligono of poligonos) {
+        for (const anel of poligono) {
+          aneis.push(anel.map(([lon, lat]) => [lat, lon]));
+        }
+      }
+    }
+    if (aneis.length === 0) return;
+
+    const todosOsPontos = aneis.flat();
+    let convertidos;
+    try {
+      const resp = await fetch('/api/converter-3d', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pontos: todosOsPontos }),
+      }).then(r => r.json());
+      convertidos = resp.pontos;
+    } catch (e) { return; }
+    if (!convertidos) return;
+
+    const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
+    const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
+
+    const grupo = new THREE.Group();
+    let cursor = 0;
+    for (const anel of aneis) {
+      const pts = [];
+      for (let i = 0; i < anel.length; i++) {
+        const c = convertidos[cursor++];
+        if (!c) continue;
+        pts.push(new THREE.Vector3(c.x - largura / 2, (c.elevacao - dados3D.elevacao_min) * 1.6 + 1.5, c.z - profundidade / 2));
+      }
+      if (pts.length >= 2) {
+        const geometriaLinha = new THREE.BufferGeometry().setFromPoints(pts);
+        grupo.add(new THREE.Line(geometriaLinha, new THREE.LineBasicMaterial({ color: 0xffffff })));
+      }
+    }
+    parcelasLayer3D = grupo;
+    cena3D.add(parcelasLayer3D);
+  }
+
+  async function carregarSobreposicoesAgua3D() {
+    if (charcaPlano3D) { cena3D.remove(charcaPlano3D); charcaPlano3D = null; }
+    if (terraplanagemPlano3D) { cena3D.remove(terraplanagemPlano3D); terraplanagemPlano3D = null; }
+
+    const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
+    const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
+
+    async function criarPlano(resultado, nivelElevacaoM) {
+      if (!resultado || !resultado.mancha_bounds || !resultado.mancha_imagem_png_base64 || nivelElevacaoM == null) return null;
+      const [sw, ne] = resultado.mancha_bounds;  // [[lat,lon],[lat,lon]]
+      const cantos = [
+        [sw[0], sw[1]],  // sudoeste
+        [sw[0], ne[1]],  // sudeste
+        [ne[0], ne[1]],  // nordeste
+        [ne[0], sw[1]],  // noroeste
+      ];
+      let convertidos;
+      try {
+        const resp = await fetch('/api/converter-3d', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pontos: cantos }),
+        }).then(r => r.json());
+        convertidos = resp.pontos;
+      } catch (e) { return null; }
+      if (!convertidos || convertidos.some(c => !c)) return null;
+
+      const [swC, seC, neC, nwC] = convertidos;
+      const y = (nivelElevacaoM - dados3D.elevacao_min) * 1.6 + 0.5;
+
+      const geometriaPlano = new THREE.BufferGeometry();
+      const posicoes = new Float32Array([
+        swC.x - largura / 2, y, swC.z - profundidade / 2,
+        seC.x - largura / 2, y, seC.z - profundidade / 2,
+        neC.x - largura / 2, y, neC.z - profundidade / 2,
+        nwC.x - largura / 2, y, nwC.z - profundidade / 2,
+      ]);
+      geometriaPlano.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
+      geometriaPlano.setIndex([0, 1, 2, 0, 2, 3]);
+      geometriaPlano.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]), 2));
+      geometriaPlano.computeVertexNormals();
+
+      const textura = new THREE.TextureLoader().load(resultado.mancha_imagem_png_base64);
+      const material = new THREE.MeshBasicMaterial({ map: textura, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+      return new THREE.Mesh(geometriaPlano, material);
+    }
+
+    charcaPlano3D = await criarPlano(ultimaCharcaResultado, ultimaCharcaResultado ? ultimaCharcaResultado.nivel_agua_m : null);
+    if (charcaPlano3D) cena3D.add(charcaPlano3D);
+
+    terraplanagemPlano3D = await criarPlano(ultimaTerraplanagemResultado, ultimaTerraplanagemResultado ? ultimaTerraplanagemResultado.cota_alvo_m : null);
+    if (terraplanagemPlano3D) cena3D.add(terraplanagemPlano3D);
   }
 
   async function abrirVista3D() {
@@ -573,7 +639,11 @@
     controlos3D.target.set(0, alturaMedia, 0);
     controlos3D.update();
 
-    infoEl.textContent = 'Clica no terreno para ver a coordenada';
+    infoEl.textContent = 'A carregar parcelas e sobreposições…';
+    carregarParcelas3D();
+    carregarSobreposicoesAgua3D().then(() => {
+      infoEl.textContent = 'Clica no terreno para ver a coordenada';
+    });
 
     if (!animando3D) {
       animando3D = true;
@@ -695,6 +765,7 @@
     }
 
     const a = data.answer;
+    ultimaTerraplanagemResultado = a;  // guardado para a sobreposição na vista 3D
     if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
     if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
       terraplanagemOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.8 }).addTo(map);
@@ -827,6 +898,7 @@
       return;
     }
     const a = data.answer;
+    ultimaCharcaResultado = a;  // guardado para a sobreposição na vista 3D
     const confClass = confClassFromLabel(data.confidence.label);
 
     // Desenhar a mancha da área inundada, se o backend a devolveu
