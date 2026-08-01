@@ -23,8 +23,6 @@ import motor_agricola
 import motor_hidrico
 import motor_charca
 import motor_terraplanagem
-import direcao_agua
-import direcao_agua
 import motor_ambiental
 
 app = Flask(__name__)
@@ -120,6 +118,22 @@ def api_elevacao_3d():
         return jsonify({"erro": str(e)}), 502
 
 
+@app.route("/api/converter-3d", methods=["POST"])
+def api_converter_3d():
+    dados = request.get_json(force=True, silent=True) or {}
+    try:
+        pontos = [(float(p[0]), float(p[1])) for p in dados["pontos"]]
+    except (KeyError, IndexError, TypeError, ValueError):
+        return jsonify({"erro": "Corpo inválido. Esperado: {pontos:[[lat,lon],...]}"}), 400
+
+    try:
+        mosaico = motor_charca._obter_mosaico(motor_charca.TIF_NORTE_DEFAULT, motor_charca.TIF_SUL_DEFAULT)
+        resultado = motor_charca.converter_pontos_3d(mosaico, pontos)
+        return jsonify({"pontos": resultado})
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
 @app.route("/api/motor-terraplanagem", methods=["POST"])
 def api_motor_terraplanagem():
     dados = request.get_json(force=True, silent=True) or {}
@@ -144,25 +158,6 @@ def api_motor_ambiental():
         return jsonify({"erro": "Parâmetros 'lat' e 'lon' são obrigatórios"}), 400
     try:
         resultado = motor_ambiental.montar_conclusao(lat, lon)
-        return jsonify(resultado)
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 502
-
-
-@app.route("/api/linhas-agua-direcao")
-def api_linhas_agua_direcao():
-    try:
-        xmin = request.args.get("xmin", type=float)
-        ymin = request.args.get("ymin", type=float)
-        xmax = request.args.get("xmax", type=float)
-        ymax = request.args.get("ymax", type=float)
-        if None in (xmin, ymin, xmax, ymax):
-            return jsonify({"erro": "Parâmetros xmin,ymin,xmax,ymax obrigatórios"}), 400
-    except (TypeError, ValueError):
-        return jsonify({"erro": "Parâmetros inválidos"}), 400
-
-    try:
-        resultado = direcao_agua.calcular_direcoes(xmin, ymin, xmax, ymax)
         return jsonify(resultado)
     except Exception as e:
         return jsonify({"erro": str(e)}), 502

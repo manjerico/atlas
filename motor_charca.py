@@ -436,6 +436,28 @@ def _gerar_imagem_mancha(mosaico, visitado, margem_px=5):
     return imagem_base64, bounds
 
 
+def converter_pontos_3d(mosaico, pontos_latlon):
+    """Converte pontos GPS para a posicao (x, z, elevacao) no MESMO referencial
+    usado pela malha 3D exportada por exportar_elevacao_3d -- x = metros a
+    leste do canto noroeste, z = metros a sul do canto noroeste, elevacao
+    lida da grelha completa (2m), nao da reduzida usada so para desenho.
+    O frontend faz depois a mesma translacao de centragem que ja aplica a
+    malha (largura/2, profundidade/2), por isso aqui devolvemos coordenadas
+    'cruas', antes de centrar."""
+    resultado = []
+    for lat, lon in pontos_latlon:
+        row, col = mosaico.latlon_para_pixel(lat, lon)
+        if not mosaico.dentro(row, col):
+            resultado.append(None)
+            continue
+        resultado.append({
+            "x": col * mosaico.pixel,
+            "z": row * mosaico.pixel,
+            "elevacao": float(mosaico.grid[row, col]),
+        })
+    return resultado
+
+
 def exportar_elevacao_3d(mosaico, fator_reducao=8):
     """Exporta uma versao reduzida da grelha de elevacao (para nao pesar no
     browser) mais os limites geograficos, para desenhar um terreno 3D no

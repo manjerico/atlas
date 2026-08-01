@@ -2,7 +2,7 @@
 
 Backend Flask que junta cinco motores (Jurídico, Energético, Agronómico,
 Hídrico e Ambiental) por trás de rotas simples, mais ferramentas de
-charca, terraplanagem e sentido da água, e serve o mapa interativo.
+charca, terraplanagem e vista 3D do terreno, e serve o mapa interativo.
 
 ## Como correr
 
@@ -33,8 +33,7 @@ charca, terraplanagem e sentido da água, e serve o mapa interativo.
   gestão de combustível, distância a estradas)
 - `motor_charca.py` — cálculo de volume de charcas (barreira em arco + montante, MDT LiDAR 2m)
 - `motor_terraplanagem.py` — cálculo de corte/aterro sobre uma área desenhada (MDT LiDAR 2m)
-- `direcao_agua.py` — sentido do escoamento das linhas de água (derivado do relevo, EU-DEM)
-- `templates/index.html` — a página do mapa
+- `templates/index.html` — a página do mapa, incluindo a vista 3D (Three.js)
 - `data/*.tif` — os dois ficheiros do MDT LiDAR (2m) de Silves usados pela charca/terraplanagem
 
 ## Porque é que isto precisava de um backend
