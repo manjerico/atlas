@@ -510,62 +510,71 @@
     cena3D.add(parcelasLayer3D);
   }
 
-  async function carregarSobreposicoesAgua3D() {
-    if (charcaPlano3D) { cena3D.remove(charcaPlano3D); charcaPlano3D = null; }
-    if (terraplanagemPlano3D) { cena3D.remove(terraplanagemPlano3D); terraplanagemPlano3D = null; }
+  function construirMalhaDeCelulas(celulas, tamanhoCelula, elevacaoM, corHex) {
+    if (!celulas || celulas.length === 0 || elevacaoM == null) return null;
 
     const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
     const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
+    const y = (elevacaoM - dados3D.elevacao_min) * 1.6 + 0.5;
+    // ligeiro excesso de tamanho, para nao deixar frestas visiveis entre celulas vizinhas
+    const meia = (tamanhoCelula / 2) * 1.5;
 
-    async function criarPlano(resultado, nivelElevacaoM) {
-      if (!resultado || !resultado.mancha_bounds || !resultado.mancha_imagem_png_base64 || nivelElevacaoM == null) return null;
-      const [sw, ne] = resultado.mancha_bounds;  // [[lat,lon],[lat,lon]]
-      const cantos = [
-        [sw[0], sw[1]],  // sudoeste
-        [sw[0], ne[1]],  // sudeste
-        [ne[0], ne[1]],  // nordeste
-        [ne[0], sw[1]],  // noroeste
-      ];
-      let convertidos;
-      try {
-        const resp = await fetch('/api/converter-3d', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pontos: cantos }),
-        }).then(r => r.json());
-        convertidos = resp.pontos;
-      } catch (e) { return null; }
-      if (!convertidos || convertidos.some(c => !c)) return null;
-
-      const [swC, seC, neC, nwC] = convertidos;
-      const y = (nivelElevacaoM - dados3D.elevacao_min) * 1.6 + 0.5;
-
-      const geometriaPlano = new THREE.BufferGeometry();
-      const posicoes = new Float32Array([
-        swC.x - largura / 2, y, swC.z - profundidade / 2,
-        seC.x - largura / 2, y, seC.z - profundidade / 2,
-        neC.x - largura / 2, y, neC.z - profundidade / 2,
-        nwC.x - largura / 2, y, nwC.z - profundidade / 2,
-      ]);
-      geometriaPlano.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
-      geometriaPlano.setIndex([0, 1, 2, 0, 2, 3]);
-      geometriaPlano.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]), 2));
-      geometriaPlano.computeVertexNormals();
-
-      const textura = new THREE.TextureLoader().load(resultado.mancha_imagem_png_base64);
-      const material = new THREE.MeshBasicMaterial({
-        map: textura, transparent: true, side: THREE.DoubleSide,
-        depthWrite: false, depthTest: false,
-      });
-      const malhaPlano = new THREE.Mesh(geometriaPlano, material);
-      malhaPlano.renderOrder = 1;  // desenhar sempre depois (por cima) do terreno
-      return malhaPlano;
+    const posicoes = new Float32Array(celulas.length * 4 * 3);
+    const indices = new Uint32Array(celulas.length * 6);
+    let vi = 0, ii = 0;
+    for (const c of celulas) {
+      const cx = c.x - largura / 2, cz = c.z - profundidade / 2;
+      posicoes.set([
+        cx - meia, y, cz - meia,
+        cx + meia, y, cz - meia,
+        cx + meia, y, cz + meia,
+        cx - meia, y, cz + meia,
+      ], vi * 3);
+      indices.set([vi, vi + 1, vi + 2, vi, vi + 2, vi + 3], ii);
+      vi += 4; ii += 6;
     }
 
-    charcaPlano3D = await criarPlano(ultimaCharcaResultado, ultimaCharcaResultado ? ultimaCharcaResultado.nivel_agua_m : null);
-    if (charcaPlano3D) cena3D.add(charcaPlano3D);
+    const geometria = new THREE.BufferGeometry();
+    geometria.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
+    geometria.setIndex(new THREE.BufferAttribute(indices, 1));
+    geometria.computeVertexNormals();
 
-    terraplanagemPlano3D = await criarPlano(ultimaTerraplanagemResultado, ultimaTerraplanagemResultado ? ultimaTerraplanagemResultado.cota_alvo_m : null);
-    if (terraplanagemPlano3D) cena3D.add(terraplanagemPlano3D);
+    const material = new THREE.MeshBasicMaterial({
+      color: corHex, transparent: true, opacity: 0.8, side: THREE.DoubleSide,
+      depthWrite: false, depthTest: false,
+    });
+    const malha = new THREE.Mesh(geometria, material);
+    malha.renderOrder = 1;  // desenhar sempre depois (por cima) do terreno
+    return malha;
+  }
+
+  function carregarSobreposicoesAgua3D() {
+    if (charcaPlano3D) { cena3D.remove(charcaPlano3D); charcaPlano3D = null; }
+    if (terraplanagemPlano3D) { cena3D.remove(terraplanagemPlano3D); terraplanagemPlano3D = null; }
+
+    if (ultimaCharcaResultado && ultimaCharcaResultado.celulas_3d) {
+      charcaPlano3D = construirMalhaDeCelulas(
+        ultimaCharcaResultado.celulas_3d, ultimaCharcaResultado.celulas_3d_tamanho_m,
+        ultimaCharcaResultado.nivel_agua_m, 0x2980b9
+      );
+      if (charcaPlano3D) cena3D.add(charcaPlano3D);
+    }
+
+    if (ultimaTerraplanagemResultado && ultimaTerraplanagemResultado.celulas_corte_3d) {
+      const grupo = new THREE.Group();
+      const corte = construirMalhaDeCelulas(
+        ultimaTerraplanagemResultado.celulas_corte_3d, ultimaTerraplanagemResultado.celulas_3d_tamanho_m,
+        ultimaTerraplanagemResultado.cota_alvo_m, 0xe67e22
+      );
+      const aterro = construirMalhaDeCelulas(
+        ultimaTerraplanagemResultado.celulas_aterro_3d, ultimaTerraplanagemResultado.celulas_3d_tamanho_m,
+        ultimaTerraplanagemResultado.cota_alvo_m, 0x2980b9
+      );
+      if (corte) grupo.add(corte);
+      if (aterro) grupo.add(aterro);
+      terraplanagemPlano3D = grupo;
+      cena3D.add(terraplanagemPlano3D);
+    }
   }
 
   async function abrirVista3D() {
@@ -646,9 +655,8 @@
 
     infoEl.textContent = 'A carregar parcelas e sobreposições…';
     carregarParcelas3D();
-    carregarSobreposicoesAgua3D().then(() => {
-      infoEl.textContent = 'Clica no terreno para ver a coordenada';
-    });
+    carregarSobreposicoesAgua3D();
+    infoEl.textContent = 'Clica no terreno para ver a coordenada';
 
     if (!animando3D) {
       animando3D = true;
