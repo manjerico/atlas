@@ -125,7 +125,7 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
             linhas, colunas = linhas[::passo], colunas[::passo]
         return [
             {"x": float((c + c_min) * mosaico.pixel), "z": float((r + r_min) * mosaico.pixel)}
-            for r, c in zip(colunas, linhas)
+            for r, c in zip(linhas, colunas)
         ]
 
     return {

@@ -417,7 +417,7 @@ def _celulas_para_3d(mosaico, mascara, max_celulas=20000):
         linhas, colunas = linhas[::passo], colunas[::passo]
     return [
         {"x": float(c * mosaico.pixel), "z": float(r * mosaico.pixel)}
-        for r, c in zip(colunas, linhas)
+        for r, c in zip(linhas, colunas)
     ]
 
 
