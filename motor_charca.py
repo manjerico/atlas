@@ -504,6 +504,16 @@ def exportar_elevacao_3d(mosaico, fator_reducao=8):
             "noroeste": [lat_nw, lon_nw], "nordeste": [lat_ne, lon_ne],
             "sudoeste": [lat_sw, lon_sw], "sudeste": [lat_se, lon_se],
         },
+        # Retangulo exato no MESMO sistema de coordenadas usado pela malha 3D
+        # (EPSG:3763) -- ao contrario dos 'cantos' em GPS acima, isto nao tem
+        # nenhuma rotacao/desvio ao ser usado para pedir uma imagem de satelite
+        # alinhada pixel a pixel com o terreno.
+        "bbox_3763": {
+            "xmin": mosaico.origem_x,
+            "xmax": mosaico.origem_x + (n_cols - 1) * mosaico.pixel * fator_reducao,
+            "ymin": mosaico.origem_y - (n_linhas - 1) * mosaico.pixel * fator_reducao,
+            "ymax": mosaico.origem_y,
+        },
     }
 
 
