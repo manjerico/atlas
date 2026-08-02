@@ -179,6 +179,7 @@
     <div id="modal-3d-topbar">
       <span>Vista 3D do terreno (zona com dados LiDAR)</span>
       <span id="info-3d">Clica no terreno para ver a coordenada</span>
+      <button id="btn-toggle-satelite-3d" class="charca-btn">🛰️ Ver satélite</button>
       <button id="btn-fechar-3d" class="charca-btn">✕ Fechar</button>
     </div>
     <div id="canvas-3d-container"></div>
@@ -378,6 +379,8 @@
   let terraplanagemPlano3D = null;
   let cena3D, camera3D, renderer3D, controlos3D, malha3D;
   let animando3D = false;
+  let texturaOrto3D = null;
+  let vista3DModoSatelite = false;
 
   function corPorElevacao(t) {
     // Rampa hipsometrica simples: verde (baixo) -> amarelo/castanho (medio) -> branco (alto)
@@ -396,6 +399,7 @@
     const geometria = new THREE.BufferGeometry();
     const posicoes = new Float32Array(n_linhas * n_cols * 3);
     const cores = new Float32Array(n_linhas * n_cols * 3);
+    const uvs = new Float32Array(n_linhas * n_cols * 2);
 
     let idx = 0;
     for (let row = 0; row < n_linhas; row++) {
@@ -410,6 +414,9 @@
         const t = (elev - elevacao_min) / Math.max(1, (elevacao_max - elevacao_min));
         const cor = corPorElevacao(t);
         cores[idx * 3] = cor.r; cores[idx * 3 + 1] = cor.g; cores[idx * 3 + 2] = cor.b;
+        // linha 0 = canto noroeste (norte) -> topo da imagem de satélite (v=1)
+        uvs[idx * 2] = col / (n_cols - 1);
+        uvs[idx * 2 + 1] = 1 - row / (n_linhas - 1);
         idx++;
       }
     }
@@ -425,10 +432,52 @@
     geometria.setIndex(indices);
     geometria.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
     geometria.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+    geometria.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometria.computeVertexNormals();
 
     const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: false });
     return new THREE.Mesh(geometria, material);
+  }
+
+  function carregarTexturaOrtoSatelite3D() {
+    if (!dados3D || !malha3D) return;
+    const { noroeste, nordeste, sudoeste, sudeste } = dados3D.cantos;
+    const lats = [noroeste[0], nordeste[0], sudoeste[0], sudeste[0]];
+    const lons = [noroeste[1], nordeste[1], sudoeste[1], sudeste[1]];
+    const xmin = Math.min(...lons), xmax = Math.max(...lons);
+    const ymin = Math.min(...lats), ymax = Math.max(...lats);
+
+    const params = new URLSearchParams({
+      bbox: `${xmin},${ymin},${xmax},${ymax}`,
+      bboxSR: '4326', imageSR: '4326', size: '1024,1024',
+      format: 'jpg', f: 'image',
+    });
+    const url = `${ORTOS_URL}/export?${params.toString()}`;
+
+    const loader = new THREE.TextureLoader();
+    loader.load(url, (textura) => {
+      texturaOrto3D = textura;
+      if (vista3DModoSatelite) aplicarModoSatelite3D(true);
+    }, undefined, () => {
+      // falha a carregar (sem rede, servico em baixo, etc.) -- fica só com cores por altitude
+      texturaOrto3D = null;
+    });
+  }
+
+  function aplicarModoSatelite3D(usarSatelite) {
+    if (!malha3D) return;
+    vista3DModoSatelite = usarSatelite;
+    if (usarSatelite && texturaOrto3D) {
+      malha3D.material.map = texturaOrto3D;
+      malha3D.material.vertexColors = false;
+      malha3D.material.color.set(0xffffff);
+    } else {
+      malha3D.material.map = null;
+      malha3D.material.vertexColors = true;
+    }
+    malha3D.material.needsUpdate = true;
+    const btn = document.getElementById('btn-toggle-satelite-3d');
+    if (btn) btn.textContent = usarSatelite ? '⛰️ Ver por altitude' : '🛰️ Ver satélite';
   }
 
   function pixelParaLatLon(dados, row, col) {
@@ -656,6 +705,11 @@
     infoEl.textContent = 'A carregar parcelas e sobreposições…';
     carregarParcelas3D();
     carregarSobreposicoesAgua3D();
+    if (!texturaOrto3D) {
+      carregarTexturaOrtoSatelite3D();
+    } else if (vista3DModoSatelite) {
+      aplicarModoSatelite3D(true);
+    }
     infoEl.textContent = 'Clica no terreno para ver a coordenada';
 
     if (!animando3D) {
@@ -671,6 +725,9 @@
   }
 
   document.getElementById('btn-ver-3d').addEventListener('click', abrirVista3D);
+  document.getElementById('btn-toggle-satelite-3d').addEventListener('click', () => {
+    aplicarModoSatelite3D(!vista3DModoSatelite);
+  });
   document.getElementById('btn-fechar-3d').addEventListener('click', () => {
     document.getElementById('modal-3d').classList.remove('aberto');
   });
