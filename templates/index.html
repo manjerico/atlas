@@ -441,15 +441,11 @@
 
   function carregarTexturaOrtoSatelite3D() {
     if (!dados3D || !malha3D) return;
-    const { noroeste, nordeste, sudoeste, sudeste } = dados3D.cantos;
-    const lats = [noroeste[0], nordeste[0], sudoeste[0], sudeste[0]];
-    const lons = [noroeste[1], nordeste[1], sudoeste[1], sudeste[1]];
-    const xmin = Math.min(...lons), xmax = Math.max(...lons);
-    const ymin = Math.min(...lats), ymax = Math.max(...lats);
+    const { xmin, ymin, xmax, ymax } = dados3D.bbox_3763;
 
     const params = new URLSearchParams({
       bbox: `${xmin},${ymin},${xmax},${ymax}`,
-      bboxSR: '4326', imageSR: '4326', size: '1024,1024',
+      bboxSR: '3763', imageSR: '3763', size: '1024,1024',
       format: 'jpg', f: 'image',
     });
     const url = `${ORTOS_URL}/export?${params.toString()}`;
