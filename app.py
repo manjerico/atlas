@@ -1,17 +1,8 @@
 """
-Atlas - Backend do protótipo (Silves)
+Atlas - Backend (Silves)
 
-Junta o motor jurídico e o motor solar por trás de duas rotas simples, e
-serve a página do mapa. Isto resolve o problema do PVGIS não poder ser
-chamado diretamente do browser (proíbe AJAX/CORS) -- ao correr aqui, do
-lado do servidor, deixa de ser um problema, porque quem fala com o PVGIS
-é este programa Python, não o browser do utilizador.
-
-Como correr:
-    pip install flask
-    python app.py
-
-Depois abre no browser: http://localhost:5000
+Junta todos os motores por tras de rotas simples, e serve o mapa
+interativo. Ver README.md para mais detalhes de arquitetura.
 """
 
 from flask import Flask, request, jsonify, render_template
@@ -24,6 +15,7 @@ import motor_hidrico
 import motor_charca
 import motor_terraplanagem
 import motor_ambiental
+import motor_agricultura
 
 app = Flask(__name__)
 
@@ -86,6 +78,19 @@ def api_motor_hidrico():
         return jsonify({"erro": str(e)}), 502
 
 
+@app.route("/api/motor-ambiental")
+def api_motor_ambiental():
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if lat is None or lon is None:
+        return jsonify({"erro": "Parâmetros 'lat' e 'lon' são obrigatórios"}), 400
+    try:
+        resultado = motor_ambiental.montar_conclusao(lat, lon)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
 @app.route("/api/motor-charca", methods=["POST"])
 def api_motor_charca():
     dados = request.get_json(force=True, silent=True) or {}
@@ -102,6 +107,22 @@ def api_motor_charca():
 
     try:
         resultado = motor_charca.montar_conclusao(pontos, m, altura)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
+@app.route("/api/motor-terraplanagem", methods=["POST"])
+def api_motor_terraplanagem():
+    dados = request.get_json(force=True, silent=True) or {}
+    try:
+        poligono = dados["poligono"]  # [[lat,lon], [lat,lon], ...]
+        pontos = [(float(p[0]), float(p[1])) for p in poligono]
+    except (KeyError, IndexError, TypeError, ValueError):
+        return jsonify({"erro": "Corpo inválido. Esperado: {poligono:[[lat,lon],...]}"}), 400
+
+    try:
+        resultado = motor_terraplanagem.montar_conclusao(pontos)
         return jsonify(resultado)
     except Exception as e:
         return jsonify({"erro": str(e)}), 502
@@ -134,31 +155,47 @@ def api_converter_3d():
         return jsonify({"erro": str(e)}), 502
 
 
-@app.route("/api/motor-terraplanagem", methods=["POST"])
-def api_motor_terraplanagem():
+@app.route("/api/culturas")
+def api_culturas():
+    return jsonify({cid: c["nome"] for cid, c in motor_agricultura.CULTURAS.items()})
+
+
+@app.route("/api/area-cultivavel", methods=["POST"])
+def api_area_cultivavel():
     dados = request.get_json(force=True, silent=True) or {}
     try:
-        poligono = dados["poligono"]  # [[lat,lon], [lat,lon], ...]
-        pontos = [(float(p[0]), float(p[1])) for p in poligono]
+        poligono = [(float(p[0]), float(p[1])) for p in dados["poligono"]]
     except (KeyError, IndexError, TypeError, ValueError):
         return jsonify({"erro": "Corpo inválido. Esperado: {poligono:[[lat,lon],...]}"}), 400
-
     try:
-        resultado = motor_terraplanagem.montar_conclusao(pontos)
-        return jsonify(resultado)
+        return jsonify(motor_agricultura.montar_conclusao_area_cultivavel(poligono))
     except Exception as e:
         return jsonify({"erro": str(e)}), 502
 
 
-@app.route("/api/motor-ambiental")
-def api_motor_ambiental():
+@app.route("/api/necessidades-rega")
+def api_necessidades_rega():
     lat = request.args.get("lat", type=float)
     lon = request.args.get("lon", type=float)
-    if lat is None or lon is None:
-        return jsonify({"erro": "Parâmetros 'lat' e 'lon' são obrigatórios"}), 400
+    cultura = request.args.get("cultura", type=str)
+    area_ha = request.args.get("area_ha", type=float)
+    if None in (lat, lon, area_ha) or not cultura:
+        return jsonify({"erro": "Parâmetros 'lat', 'lon', 'cultura' e 'area_ha' são obrigatórios"}), 400
     try:
-        resultado = motor_ambiental.montar_conclusao(lat, lon)
-        return jsonify(resultado)
+        return jsonify(motor_agricultura.montar_conclusao_rega(lat, lon, cultura, area_ha))
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 502
+
+
+@app.route("/api/compatibilidade")
+def api_compatibilidade():
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    cultura = request.args.get("cultura", type=str)
+    if lat is None or lon is None or not cultura:
+        return jsonify({"erro": "Parâmetros 'lat', 'lon' e 'cultura' são obrigatórios"}), 400
+    try:
+        return jsonify(motor_agricultura.montar_conclusao_compatibilidade(lat, lon, cultura))
     except Exception as e:
         return jsonify({"erro": str(e)}), 502
 
