@@ -1,27 +1,18 @@
 """
-Atlas - Motor Energetico (Solar) v1 (prototipo)
+Atlas - Motor Energetico (Solar) v1
 
 Combina duas fontes oficiais europeias:
   1. PVGIS (Comissao Europeia / JRC) -- irradiacao e producao fotovoltaica.
   2. Open Topo Data / EU-DEM (Copernicus, resolucao 25m) -- elevacao do
      terreno, usada para calcular declive e orientacao reais do local.
 
-Com isto o motor responde a duas perguntas diferentes:
-  - "Qual e o melhor potencial solar possivel aqui?" (assume angulo/orientacao
-    ideais -- so depende do clima da zona, ja tínhamos isto na v0)
-  - "E se os paineis seguirem o declive natural do terreno, sem estrutura de
-    inclinacao?" (mais barato de instalar, mas normalmente produz menos)
-
 IMPORTANTE -- arquitetura:
-O PVGIS proibe explicitamente pedidos AJAX/CORS a partir de um browser (ver
-nota na v0 deste script). Por isso este motor continua a correr do lado do
-servidor / linha de comandos, nao no protótipo HTML.
+O PVGIS proibe explicitamente pedidos AJAX/CORS a partir de um browser
+("access to PVGIS APIs via AJAX is not allowed"). Por isso este motor
+corre do lado do servidor, nao no browser.
 
 Uso:
-    python atlas_motor_solar.py <latitude> <longitude> [peakpower_kw]
-
-Exemplo:
-    python atlas_motor_solar.py 37.35400306733997 -8.304772409825649
+    python motor_solar.py <latitude> <longitude> [peakpower_kw]
 """
 
 import sys
@@ -41,7 +32,6 @@ OFFSET_M = 50.0  # distancia aos pontos vizinhos usados para estimar o declive
 # Elevacao / declive / orientacao (Open Topo Data, EU-DEM Copernicus)
 # ---------------------------------------------------------------------
 def _deslocar(lat, lon, offset_m):
-    """Devolve os 4 pontos vizinhos (N, S, E, O) a offset_m metros do centro."""
     delta_lat = offset_m / 111_320.0
     delta_lon = offset_m / (111_320.0 * math.cos(math.radians(lat)))
     return {
@@ -54,40 +44,25 @@ def _deslocar(lat, lon, offset_m):
 
 
 def obter_elevacoes(lat, lon, offset_m=OFFSET_M):
-    """Consulta a Open Topo Data (EU-DEM) para o centro e 4 pontos vizinhos,
-    numa unica chamada (locations separadas por '|')."""
     pontos = _deslocar(lat, lon, offset_m)
     ordem = ["centro", "norte", "sul", "este", "oeste"]
     locations = "|".join(f"{pontos[k][0]},{pontos[k][1]}" for k in ordem)
-
     url = f"{OPENTOPO_URL}?{urllib.parse.urlencode({'locations': locations})}"
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "AtlasPrototype/0.1 (projeto pessoal, uso nao-comercial)"}
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": "AtlasPrototype/0.1"})
     with urllib.request.urlopen(req, timeout=20) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-
     if data.get("status") != "OK":
         raise RuntimeError(f"Open Topo Data devolveu estado: {data.get('status')}")
-
     elevs = {k: r["elevation"] for k, r in zip(ordem, data["results"])}
     return elevs
 
 
 def calcular_declive_orientacao(elevs, offset_m=OFFSET_M):
-    """Calcula declive (graus) e orientacao (bearing de bussola, 0=Norte,
-    sentido horario -- direcao para onde o terreno desce) por diferencas
-    finitas nos 4 pontos vizinhos."""
     dzdx = (elevs["este"] - elevs["oeste"]) / (2 * offset_m)
     dzdy = (elevs["norte"] - elevs["sul"]) / (2 * offset_m)
-
-    declive_rad = math.atan(math.sqrt(dzdx ** 2 + dzdy ** 2))
-    declive_deg = math.degrees(declive_rad)
-
-    # Direcao de maior descida (para onde o terreno "olha")
+    declive_deg = math.degrees(math.atan(math.sqrt(dzdx ** 2 + dzdy ** 2)))
     vx, vy = -dzdx, -dzdy
     orientacao_deg = math.degrees(math.atan2(vx, vy)) % 360
-
     return declive_deg, orientacao_deg
 
 
@@ -98,8 +73,6 @@ def orientacao_para_label(orientacao_deg):
 
 
 def compass_para_pvgis_aspect(orientacao_deg):
-    """Converte bearing de bussola (0=Norte, horario) para a convencao do
-    PVGIS (0=Sul, +90=Oeste, -90=Este)."""
     aspect = orientacao_deg - 180
     if aspect > 180:
         aspect -= 360
@@ -141,7 +114,7 @@ def classificar_potencial(especifico_kwh_kwp):
 
 
 # ---------------------------------------------------------------------
-# Conclusao (Atlas Decision Engine Contract)
+# Conclusao
 # ---------------------------------------------------------------------
 def montar_conclusao(lat, lon, peakpower=1.0):
     evidencia = []
@@ -155,7 +128,6 @@ def montar_conclusao(lat, lon, peakpower=1.0):
         "economica (Nivel 3).",
     ]
 
-    # --- 1. Melhor caso: PVGIS com angulo/orientacao otimos ---
     try:
         data_otimo = consultar_pvgis(lat, lon, peakpower=peakpower, optimalangles=True)
         totals = data_otimo["outputs"]["totals"]["fixed"]
@@ -168,7 +140,6 @@ def montar_conclusao(lat, lon, peakpower=1.0):
     except Exception as e:
         return _erro(lat, lon, f"Erro ao consultar o PVGIS (melhor caso): {e}")
 
-    # --- 2. Declive e orientacao reais do terreno (EU-DEM) ---
     terreno_real = None
     try:
         elevs = obter_elevacoes(lat, lon)
@@ -176,7 +147,6 @@ def montar_conclusao(lat, lon, peakpower=1.0):
         evidencia.append({"fonte": "Open Topo Data / EU-DEM Copernicus (25m)", "elevacoes_m": elevs})
 
         if declive_deg < 3:
-            # Terreno praticamente plano -- orientacao natural nao e um fator relevante
             terreno_real = {
                 "declive_estimado_graus": round(declive_deg, 1),
                 "orientacao_estimada": "Terreno praticamente plano -- orientacao pouco relevante",
@@ -263,11 +233,8 @@ def _erro(lat, lon, motivo):
 
 if __name__ == "__main__":
     if len(sys.argv) not in (3, 4):
-        print("Uso: python atlas_motor_solar.py <latitude> <longitude> [peakpower_kw]")
+        print("Uso: python motor_solar.py <latitude> <longitude> [peakpower_kw]")
         sys.exit(1)
-
     lat, lon = float(sys.argv[1]), float(sys.argv[2])
     peakpower = float(sys.argv[3]) if len(sys.argv) == 4 else 1.0
-
-    resultado = montar_conclusao(lat, lon, peakpower=peakpower)
-    print(json.dumps(resultado, indent=2, ensure_ascii=False))
+    print(json.dumps(montar_conclusao(lat, lon, peakpower=peakpower), indent=2, ensure_ascii=False))

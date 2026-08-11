@@ -1,21 +1,20 @@
 """
-Atlas - Motor Hidrico v0 (prototipo)
+Atlas - Motor Hidrico v1
 
-Combina duas fontes:
+Combina tres fontes:
   1. SIG do PDM de Silves -- presenca de linhas de agua (Dominio Publico
      Hidrico), captacoes de agua subterranea, albufeiras e aproveitamentos
      hidroagricolas (rega) num raio de 1km do ponto.
   2. Open-Meteo (ERA5-Land, ECMWF) -- precipitacao media anual dos ultimos
      10 anos, como contexto climatico regional.
+  3. LNEG (Recursos Hidrogeologicos) -- sistema aquifero, pontos de agua
+     (furos/pocos/nascentes) inventariados, e um contexto regional agregado
+     (nao uma previsao pontual) de como a agua subterranea tem sido usada
+     numa zona alargada.
 
 O que este motor responde: "ha indicadores de agua disponivel perto deste
-local?" -- presenca de infraestrutura e agua de superficie, e o contexto
-climatico da regiao. NAO responde "tenho caudal suficiente para regar X
-hectares" -- isso exigiria um estudo hidrogeologico e um projeto de rega
-a serio, fora do que dados abertos conseguem dar.
-
-Uso:
-    python atlas_motor_hidrico.py <latitude> <longitude>
+local?" -- NAO responde "tenho caudal suficiente" nem "onde devo furar" --
+isso exige um estudo hidrogeologico real no terreno.
 """
 
 import sys
@@ -56,9 +55,6 @@ CAMADAS_HIDRICAS = {
 
 
 def _query_layer_buffer(layer_id, lat, lon, raio_m=RAIO_BUSCA_M):
-    """Interroga uma camada, com um buffer (distance/units) a partir do ponto --
-    ao contrario do motor juridico, aqui queremos saber o que existe PERTO,
-    nao so exatamente no ponto."""
     params = {
         "geometry": f"{lon},{lat}",
         "geometryType": "esriGeometryPoint",
@@ -80,9 +76,8 @@ def _query_layer_buffer(layer_id, lat, lon, raio_m=RAIO_BUSCA_M):
 
 
 def obter_precipitacao_media_anual(lat, lon, anos=10):
-    """Media anual de precipitacao dos ultimos N anos completos, via Open-Meteo (ERA5-Land)."""
     ano_atual = date.today().year
-    ano_fim = ano_atual - 1  # ultimo ano completo
+    ano_fim = ano_atual - 1
     ano_inicio = ano_fim - anos + 1
 
     params = {
@@ -112,8 +107,6 @@ def classificar_precipitacao(mm_ano):
 
 
 def obter_sistema_aquifero(lat, lon):
-    """Interroga o LNEG por interseccao exata (nao buffer) -- que sistema
-    aquifero esta por baixo deste ponto, se algum."""
     params = {
         "geometry": f"{lon},{lat}",
         "geometryType": "esriGeometryPoint",
@@ -135,8 +128,6 @@ def obter_sistema_aquifero(lat, lon):
 
 
 def obter_pontos_agua_perto(lat, lon, raio_m=RAIO_BUSCA_M):
-    """Furos, pocos, nascentes e sondagens inventariados pelo LNEG num
-    raio a volta do ponto."""
     params = {
         "geometry": f"{lon},{lat}",
         "geometryType": "esriGeometryPoint",
@@ -157,12 +148,6 @@ def obter_pontos_agua_perto(lat, lon, raio_m=RAIO_BUSCA_M):
 
 
 def obter_contexto_regional_agua(lat, lon, raio_m=5000):
-    """Estatistica AGREGADA de uma zona alargada (por omissao, raio de 5km --
-    da ordem das centenas/milhares de hectares) -- NAO uma previsao para o
-    ponto especifico. Serve para dar uma nocao indicativa de como a agua
-    subterranea tem sido usada nesta zona mais larga (ex: predominantemente
-    agricola vs. domestica), util como triagem previa a uma compra, nunca
-    como garantia para uma parcela em particular."""
     params = {
         "geometry": f"{lon},{lat}",
         "geometryType": "esriGeometryPoint",
@@ -287,7 +272,7 @@ def montar_conclusao(lat, lon):
     elif n_indicadores >= 2:
         confianca = "Média"
     else:
-        confianca = "Média"  # presenca/ausencia e sempre uma leitura indireta, nunca "Alta"
+        confianca = "Média"
 
     return {
         "engine": "Hidrico",
@@ -339,7 +324,7 @@ def montar_conclusao(lat, lon):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Uso: python atlas_motor_hidrico.py <latitude> <longitude>")
+        print("Uso: python motor_hidrico.py <latitude> <longitude>")
         sys.exit(1)
     lat, lon = float(sys.argv[1]), float(sys.argv[2])
     print(json.dumps(montar_conclusao(lat, lon), indent=2, ensure_ascii=False))

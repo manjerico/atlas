@@ -1,29 +1,14 @@
 """
-Atlas - Motor Terraplanagem v0 (prototipo)
+Atlas - Motor Terraplanagem v0
 
 Calcula corte/aterro (cut and fill) para nivelar uma area desenhada pelo
 utilizador, usando o mesmo MDT LiDAR (2m) do motor da charca.
 
-Metodologia (a mais simples e comum para uma primeira estimativa):
-  1. O utilizador desenha um poligono no mapa (a area a nivelar).
-  2. A cota-alvo e a MEDIA das cotas de todas as celulas dentro do poligono
-     (ou seja, nivela para o "meio-termo" -- e a opcao mais equilibrada
-     entre corte e aterro, mas nao a unica possivel).
-  3. Para cada celula: se a cota atual > cota-alvo, e "corte" (preciso
-     remover terra); se < cota-alvo, e "aterro" (preciso trazer terra).
+Metodologia: cota-alvo = MEDIA das cotas dentro do poligono. Para cada
+celula: se cota atual > cota-alvo, e "corte"; se < cota-alvo, e "aterro".
 
-O que isto NAO faz (Nivel 2, nao Nivel 3):
-  - Nao inclui fator de empolamento/compactacao (a terra escavada ocupa mais
-    volume solto do que compactada -- tipicamente +15 a +30%, varia com o
-    tipo de solo).
-  - Nao inclui custo de maquinaria, mao de obra, ou transporte.
-  - Nao considera vegetacao, construcoes existentes, nem acessos para
-    maquinas.
-  - Resolucao de 2m -- nao substitui um levantamento topografico real para
-    orcamento de obra.
-
-Uso:
-    python motor_terraplanagem.py  (executa um auto-teste sintetico)
+O que isto NAO faz (Nivel 2, nao Nivel 3): nao inclui fator de
+empolamento/compactacao, nem custo de maquinaria/mao de obra/transporte.
 """
 
 import json
@@ -32,7 +17,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from motor_charca import (
-    _obter_mosaico, TIF_NORTE_DEFAULT, TIF_SUL_DEFAULT, _gerar_imagem_mancha,
+    _obter_mosaico, TIF_NORTE_DEFAULT, TIF_SUL_DEFAULT,
 )
 from PIL import Image
 import io
@@ -40,9 +25,7 @@ import base64
 
 
 def _pontos_dentro_poligono(rows, cols, poligono_rc):
-    """Teste ponto-em-poligono vetorizado (ray casting, regra par-impar).
-    rows, cols: arrays 2D (meshgrid) em coordenadas de pixel.
-    poligono_rc: lista de (row, col) dos vertices do poligono."""
+    """Teste ponto-em-poligono vetorizado (ray casting, regra par-impar)."""
     n = len(poligono_rc)
     dentro = np.zeros(rows.shape, dtype=bool)
     j = n - 1
@@ -50,7 +33,6 @@ def _pontos_dentro_poligono(rows, cols, poligono_rc):
         ri, ci = poligono_rc[i]
         rj, cj = poligono_rc[j]
         cond = ((ci > cols) != (cj > cols))
-        # evitar divisao por zero quando a aresta e vertical em col
         denom = (cj - ci) if (cj - ci) != 0 else 1e-12
         x_intersecao = (rj - ri) * (cols - ci) / denom + ri
         cond = cond & (rows < x_intersecao)
@@ -77,8 +59,7 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
     c_max = min(mosaico.grid.shape[1] - 1, max(cols_poly) + margem)
 
     rows_grid, cols_grid = np.mgrid[r_min:r_max + 1, c_min:c_max + 1]
-    poligono_rc_local = [(r, c) for r, c in poligono_rc]  # coords absolutas, mgrid tambem e absoluto
-    dentro = _pontos_dentro_poligono(rows_grid, cols_grid, poligono_rc_local)
+    dentro = _pontos_dentro_poligono(rows_grid, cols_grid, poligono_rc)
 
     n_celulas = int(dentro.sum())
     if n_celulas == 0:
@@ -88,12 +69,11 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
     cotas = mosaico.grid[r_min:r_max + 1, c_min:c_max + 1][dentro]
     cota_alvo = float(cotas.mean())
 
-    diffs = cotas - cota_alvo  # >0 = corte, <0 = aterro
+    diffs = cotas - cota_alvo
     volume_corte = float(np.sum(diffs[diffs > 0]) * area_celula)
     volume_aterro = float(np.sum(-diffs[diffs < 0]) * area_celula)
     area_total_m2 = n_celulas * area_celula
 
-    # Imagem: corte a laranja, aterro a azul, dentro do poligono
     sub_grid = mosaico.grid[r_min:r_max + 1, c_min:c_max + 1]
     corte_mask = dentro & (sub_grid > cota_alvo)
     aterro_mask = dentro & (sub_grid < cota_alvo)
@@ -112,9 +92,6 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
     lat_ne, lon_ne = mosaico.pixel_para_latlon(r_min, c_max)
     bounds = [[lat_sw, lon_sw], [lat_ne, lon_ne]]
 
-    # Posicoes 3D reais das celulas de corte/aterro (nao um retangulo) --
-    # os indices do recorte tem de ser deslocados de volta para a grelha
-    # completa (+r_min, +c_min) antes de converter para metros.
     def _celulas_recorte_para_3d(mascara_recorte, max_celulas=15000):
         linhas, colunas = np.nonzero(mascara_recorte)
         n = len(linhas)
@@ -134,7 +111,7 @@ def calcular_terraplanagem(mosaico, poligono_latlon):
         "area_total_ha": round(area_total_m2 / 10000, 3),
         "volume_corte_m3": round(volume_corte, 1),
         "volume_aterro_m3": round(volume_aterro, 1),
-        "saldo_m3": round(volume_corte - volume_aterro, 1),  # >0: sobra terra; <0: falta terra
+        "saldo_m3": round(volume_corte - volume_aterro, 1),
         "mancha_imagem_png_base64": imagem_base64,
         "mancha_bounds": bounds,
         "celulas_corte_3d": _celulas_recorte_para_3d(corte_mask),
@@ -185,42 +162,3 @@ def montar_conclusao(poligono_latlon, path_norte=TIF_NORTE_DEFAULT, path_sul=TIF
         "sources": ["DGT -- Levantamento LiDAR de Portugal Continental (MDT 2m)"],
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
-
-
-if __name__ == "__main__":
-    # Auto-teste com uma bacia sintetica (paraboloide), para validar a
-    # logica de corte/aterro sem depender dos ficheiros reais.
-    import motor_charca as mc
-
-    class MosaicoFalso:
-        def __init__(self):
-            n = 60
-            y, x = np.mgrid[0:n, 0:n]
-            centro = n // 2
-            self.grid = 100.0 + 0.02 * ((x - centro) ** 2 + (y - centro) ** 2)
-            self.pixel = 2.0
-            self.origem_x, self.origem_y = mc.latlon_para_en(37.35, -8.30)
-
-        def latlon_para_pixel(self, lat, lon):
-            E, N = mc.latlon_para_en(lat, lon)
-            return round((self.origem_y - N) / self.pixel), round((E - self.origem_x) / self.pixel)
-
-        def pixel_para_latlon(self, row, col):
-            E = self.origem_x + col * self.pixel
-            N = self.origem_y - row * self.pixel
-            return mc.en_para_latlon(E, N)
-
-        def dentro(self, row, col):
-            return 0 <= row < self.grid.shape[0] and 0 <= col < self.grid.shape[1]
-
-    mf = MosaicoFalso()
-    # Um quadrado 20x20 centrado na bacia (rows/cols 20-40)
-    p1 = mf.pixel_para_latlon(20, 20)
-    p2 = mf.pixel_para_latlon(20, 40)
-    p3 = mf.pixel_para_latlon(40, 40)
-    p4 = mf.pixel_para_latlon(40, 20)
-    r = calcular_terraplanagem(mf, [p1, p2, p3, p4])
-    print("cota_alvo:", r["cota_alvo_m"])
-    print("area_ha:", r["area_total_ha"])
-    print("volume_corte:", r["volume_corte_m3"], "volume_aterro:", r["volume_aterro_m3"])
-    print("saldo:", r["saldo_m3"])

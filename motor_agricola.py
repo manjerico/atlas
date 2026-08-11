@@ -1,28 +1,14 @@
 """
-Atlas - Motor Agronomico v0 (prototipo)
+Atlas - Motor Agronomico v0
 
-Combina duas fontes:
-  1. EU-DEM / Open Topo Data -- declive do terreno (reaproveitado do motor solar).
+Combina:
+  1. EU-DEM / Open Topo Data -- declive do terreno.
   2. SoilGrids (ISRIC, Holanda) -- textura do solo (argila/areia/limo) e pH,
      a 250m de resolucao, modelado globalmente por machine learning sobre
      perfis de solo reais (WoSIS) e variaveis ambientais.
 
-IMPORTANTE -- o que este motor NAO faz:
-Fica estritamente no Nivel 2 (inferencia tecnica). Nao recomenda uma cultura
-especifica, nao estima rendimento, nao diz "compensa financeiramente".
-Dado que pode estar a apoiar uma decisao de compra real, a fronteira entre
-"aqui esta o que a ciencia do solo diz sobre este local" e "deves plantar
-isto" e deliberada e nao deve ser esbatida.
-
-Limitacoes tecnicas a saber:
-  - SoilGrids e um modelo GLOBAL (250m), nao uma amostragem local -- nao
-    substitui uma analise de solo real feita no terreno.
-  - A classificacao textural aqui e uma reconstrucao simplificada do
-    triangulo USDA, nao o software oficial -- pode divergir perto das
-    fronteiras entre classes.
-
-Uso:
-    python atlas_motor_agricola.py <latitude> <longitude>
+O que este motor NAO faz: nao recomenda uma cultura especifica, nao estima
+rendimento, nao diz "compensa financeiramente". Fica no Nivel 2.
 """
 
 import sys
@@ -38,9 +24,6 @@ OPENTOPO_URL = "https://api.opentopodata.org/v1/eudem25m"
 OFFSET_M = 50.0
 
 
-# ---------------------------------------------------------------------
-# Declive (reaproveitado do motor solar)
-# ---------------------------------------------------------------------
 def _deslocar(lat, lon, offset_m):
     delta_lat = offset_m / 111_320.0
     delta_lon = offset_m / (111_320.0 * math.cos(math.radians(lat)))
@@ -67,9 +50,6 @@ def obter_declive(lat, lon, offset_m=OFFSET_M):
     return declive_deg
 
 
-# ---------------------------------------------------------------------
-# SoilGrids
-# ---------------------------------------------------------------------
 def consultar_soilgrids(lat, lon, depth="0-5cm", tentativas=2, timeout=35):
     params = [
         ("lon", lon), ("lat", lat),
@@ -88,27 +68,20 @@ def consultar_soilgrids(lat, lon, depth="0-5cm", tentativas=2, timeout=35):
         except Exception as e:
             ultimo_erro = e
             if tentativa < tentativas:
-                time.sleep(2)  # o SoilGrids e um servico academico, sem SLA -- vale a pena insistir
+                time.sleep(2)
     raise ultimo_erro
 
 
 def extrair_propriedades(data):
-    """Extrai clay/sand/silt (%), pH e carbono organico (%) da resposta SoilGrids."""
     props = {}
     for layer in data["properties"]["layers"]:
         nome = layer["name"]
         fator = layer["unit_measure"]["d_factor"]
         valor_bruto = layer["depths"][0]["values"]["mean"]
-        if valor_bruto is None:
-            props[nome] = None
-        else:
-            props[nome] = valor_bruto / fator
+        props[nome] = None if valor_bruto is None else valor_bruto / fator
     return props
 
 
-# ---------------------------------------------------------------------
-# Classificacao textural (reconstrucao simplificada do triangulo USDA)
-# ---------------------------------------------------------------------
 def classificar_textura(clay, sand, silt):
     if clay >= 40:
         if silt >= 40:
@@ -128,7 +101,6 @@ def classificar_textura(clay, sand, silt):
         if sand <= 52:
             return "Franco"
         return "Franco-arenoso"
-    # clay < 7
     if silt >= 80:
         return "Silte"
     if sand >= 85 and (silt + 1.5 * clay) < 15:
@@ -150,9 +122,6 @@ def classificar_ph(ph):
     return "Alcalino"
 
 
-# ---------------------------------------------------------------------
-# Conclusao (Atlas Decision Engine Contract)
-# ---------------------------------------------------------------------
 def montar_conclusao(lat, lon):
     limitations = [
         "SoilGrids e um modelo GLOBAL a 250m de resolucao, calibrado por "
@@ -162,9 +131,7 @@ def montar_conclusao(lat, lon):
         "do triangulo USDA, nao o software oficial -- pode divergir perto "
         "das fronteiras entre classes.",
         "Este motor NAO recomenda uma cultura especifica nem estima "
-        "rendimento ou retorno de investimento -- e informacao tecnica "
-        "(Nivel 2), nao uma decisao de investimento (Nivel 3). Antes de "
-        "decidir plantacoes, consulta um agronomo ou tecnico local.",
+        "rendimento ou retorno de investimento.",
     ]
 
     try:
@@ -236,7 +203,7 @@ def montar_conclusao(lat, lon):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Uso: python atlas_motor_agricola.py <latitude> <longitude>")
+        print("Uso: python motor_agricola.py <latitude> <longitude>")
         sys.exit(1)
     lat, lon = float(sys.argv[1]), float(sys.argv[2])
     print(json.dumps(montar_conclusao(lat, lon), indent=2, ensure_ascii=False))

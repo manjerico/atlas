@@ -2,20 +2,19 @@
 Atlas - Motor Ambiental v0
 
 Cobre:
-  1. Classificacao de risco de incendio (SIG de Silves)
-  2. Historico de incendios florestais
-  3. Obrigacao legal de gestao de combustivel -- faixa de 50m (territorio
-     florestal) ou 10m (territorio agricola) a volta de edificacoes,
-     conforme o Decreto-Lei n.º 82/2021 (Sistema de Gestao Integrada de
-     Fogos Rurais), atualizado pelo Decreto-Lei n.º 6/2025
-  4. Distancia a estrada mais proxima
+  1. Classificacao de risco de incendio da parcela (SIG de Silves).
+  2. Historico de incendios florestais na zona (SIG de Silves).
+  3. Obrigacao legal de gestao de combustivel -- 50m se a classificacao de
+     solo for florestal, 10m se for agricola, conforme o Decreto-Lei
+     82/2021 (Sistema de Gestao Integrada de Fogos Rurais), atualizado
+     pelo Decreto-Lei 6/2025. Reaproveita a classificacao de solo que o
+     Motor Juridico ja calcula.
+  4. Distancia a estrada mais proxima (SIG de Silves) -- informacao de
+     acesso, NAO uma rota de fuga.
 
-O que este motor DELIBERADAMENTE NAO faz: nao gera uma rota de fuga
-dinamica para um incendio real. Isso exige informacao em tempo real
-(vento, velocidade de propagacao, cortes de estrada) e comando no terreno
--- e da responsabilidade da Protecao Civil, GNR e bombeiros, nao de um
-calculo estatico sobre um mapa feito de antemao. EM CASO DE INCENDIO
-REAL: LIGUE 112.
+O que este motor explicitamente NAO faz: nao gera uma rota de evacuacao
+dinamica, nem substitui o Plano Municipal de Emergencia de Protecao Civil.
+Em caso de incendio real, o numero e sempre o 112.
 """
 
 import json
@@ -24,20 +23,25 @@ from datetime import datetime, timezone
 import urllib.request
 import urllib.parse
 
+import motor_juridico
+
 BASE_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer"
+RISCO_INCENDIO_LAYER_ID = 409
+HISTORICO_INCENDIO_LAYER_ID = 408
+REDE_RODOVIARIA_LAYER_ID = 372
 
-LAYER_RISCO_INCENDIO = 409
-LAYER_INCENDIOS_HISTORICO = 408
-LAYER_SOLO = 465
-LAYER_ESTRADAS = 372
+FAIXA_FLORESTAL_M = 50
+FAIXA_AGRICOLA_M = 10
 
 
-def _query_ponto(layer_id, lat, lon):
+def _query_layer_buffer(layer_id, lat, lon, raio_m):
     params = {
         "geometry": f"{lon},{lat}",
         "geometryType": "esriGeometryPoint",
         "inSR": "4326",
         "spatialRel": "esriSpatialRelIntersects",
+        "distance": raio_m,
+        "units": "esriSRUnit_Meter",
         "outFields": "*",
         "where": "1=1",
         "returnGeometry": "false",
@@ -51,136 +55,100 @@ def _query_ponto(layer_id, lat, lon):
     return [f for f in features if f.get("attributes", {}).get("DESACTIVO") not in (1, "1")]
 
 
-def _query_estradas_proximas(lat, lon, raio_m=3000):
-    params = {
-        "geometry": f"{lon},{lat}",
-        "geometryType": "esriGeometryPoint",
-        "inSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects",
-        "distance": raio_m,
-        "units": "esriSRUnit_Meter",
-        "outFields": "OBJECTID",
-        "where": "1=1",
-        "returnGeometry": "true",
-        "f": "geojson",
-    }
-    url = f"{BASE_URL}/{LAYER_ESTRADAS}/query?{urllib.parse.urlencode(params)}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AtlasPrototype/0.1"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+def _query_layer_ponto(layer_id, lat, lon):
+    return _query_layer_buffer(layer_id, lat, lon, raio_m=1)
 
 
-def _distancia_m(lat1, lon1, lat2, lon2):
-    """Distancia aproximada em metros (formula equiretangular -- suficiente
-    para as distancias curtas aqui em causa, nao para navegacao)."""
-    R = 6371000
-    x = math.radians(lon2 - lon1) * math.cos(math.radians((lat1 + lat2) / 2))
-    y = math.radians(lat2 - lat1)
-    return math.sqrt(x * x + y * y) * R
-
-
-def _distancia_estrada_mais_proxima(lat, lon):
-    geo = _query_estradas_proximas(lat, lon)
-    features = geo.get("features", [])
+def obter_classe_risco_incendio(lat, lon):
+    features = _query_layer_ponto(RISCO_INCENDIO_LAYER_ID, lat, lon)
     if not features:
         return None
-    menor_dist = None
-    for f in features:
-        geom = f.get("geometry")
-        if not geom:
-            continue
-        coords = geom["coordinates"]
-        if geom["type"] == "MultiLineString":
-            todos_pontos = [pt for parte in coords for pt in parte]
-        else:
-            todos_pontos = coords
-        for lon_v, lat_v in todos_pontos:
-            d = _distancia_m(lat, lon, lat_v, lon_v)
-            if menor_dist is None or d < menor_dist:
-                menor_dist = d
-    return menor_dist
+    return features[0]["attributes"]
+
+
+def obter_historico_incendios(lat, lon):
+    features = _query_layer_ponto(HISTORICO_INCENDIO_LAYER_ID, lat, lon)
+    return len(features) > 0
+
+
+def obter_distancia_estrada(lat, lon, raio_inicial_m=200, raio_max_m=2000):
+    raio = raio_inicial_m
+    while raio <= raio_max_m:
+        features = _query_layer_buffer(REDE_RODOVIARIA_LAYER_ID, lat, lon, raio)
+        if features:
+            return raio
+        raio *= 2
+    return None
+
+
+def determinar_faixa_gestao_combustivel(classificacao_solo):
+    if classificacao_solo and "Florestal" in classificacao_solo:
+        return FAIXA_FLORESTAL_M, "florestal"
+    return FAIXA_AGRICOLA_M, "agrícola/outro"
 
 
 def montar_conclusao(lat, lon):
     limitations = [
-        "NÃO gera uma rota de fuga dinâmica -- um incêndio real muda com o "
-        "vento e a propagação em tempo real, e exige comando no terreno. "
-        "Segue sempre a Proteção Civil, GNR e bombeiros. EM EMERGÊNCIA: 112.",
-        "Distância à estrada é uma aproximação (vértice mais próximo da "
-        "linha, não a distância perpendicular exata).",
-        "A faixa de gestão de combustível aqui indicada é derivada "
-        "automaticamente da classificação de solo do PDM -- confirma sempre "
-        "no PMDFCI (Plano Municipal de Defesa da Floresta Contra Incêndios) "
-        "da Câmara Municipal de Silves antes de agir.",
+        "Este motor NÃO gera uma rota de evacuação dinâmica -- isso depende "
+        "de condições em tempo real (vento, propagação do fogo, estradas "
+        "cortadas) que exigem comando no terreno pela Proteção Civil/GNR/"
+        "bombeiros, não um cálculo estático.",
+        "Não substitui o Plano Municipal de Emergência de Proteção Civil. "
+        "Em caso de incêndio real, liga sempre 112.",
+        "A distância à estrada é uma aproximação por procura em anéis "
+        "concêntricos -- não é a distância exata a pé nem por estrada.",
     ]
 
     try:
-        risco = _query_ponto(LAYER_RISCO_INCENDIO, lat, lon)
-        historico = _query_ponto(LAYER_INCENDIOS_HISTORICO, lat, lon)
-        solo = _query_ponto(LAYER_SOLO, lat, lon)
-        dist_estrada = _distancia_estrada_mais_proxima(lat, lon)
+        classe_risco = obter_classe_risco_incendio(lat, lon)
     except Exception as e:
-        return {
-            "engine": "Ambiental",
-            "question": "Que riscos ambientais existem, e qual a obrigação de limpeza de combustível?",
-            "answer": None,
-            "knowledge_level": "FACT",
-            "confidence": {"label": "Baixa", "reason": str(e)},
-            "limitations": [str(e)],
-            "sources": ["sigeo.cm-silves.pt (PDM_MS)"],
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        classe_risco = None
+        limitations.insert(0, f"Não foi possível obter a classe de risco de incêndio: {e}")
 
-    classe_risco = None
-    if risco:
-        attrs = risco[0]["attributes"]
-        classe_risco = attrs.get("DESIGNACAO_PO") or attrs.get("SUBTEMA_PO") or "Classificado (ver evidência)"
+    try:
+        ja_ardeu = obter_historico_incendios(lat, lon)
+    except Exception as e:
+        ja_ardeu = None
+        limitations.insert(0, f"Não foi possível obter o histórico de incêndios: {e}")
 
-    ja_ardeu = len(historico) > 0
+    try:
+        distancia_estrada_m = obter_distancia_estrada(lat, lon)
+    except Exception as e:
+        distancia_estrada_m = None
+        limitations.insert(0, f"Não foi possível calcular a distância à estrada: {e}")
 
-    # Faixa legal de gestao de combustivel (DL 82/2021, alterado pelo DL 6/2025),
-    # derivada da classificacao de solo ja usada pelo Motor Juridico.
-    faixa_m = None
-    motivo_faixa = "Classificação de solo não determinada -- consulta o PMDFCI do município."
-    if solo:
-        attrs = solo[0]["attributes"]
-        subtema = attrs.get("SUBTEMA_PO") or ""
-        designacao = attrs.get("DESIGNACAO_PO") or ""
-        if "Florestal" in designacao or "Natural" in designacao:
-            faixa_m = 50
-            motivo_faixa = f"Solo classificado como '{designacao}' -- território florestal: faixa de 50m à volta de edificações."
-        elif "Agrícola" in designacao:
-            faixa_m = 10
-            motivo_faixa = f"Solo classificado como '{designacao}' -- território agrícola: faixa de 10m à volta de edificações."
-        elif subtema == "Solo Urbano":
-            motivo_faixa = f"Solo urbano ('{designacao}') -- a faixa de 50/10m aplica-se a espaços rurais; para solo urbano consulta o regulamento municipal específico."
-        else:
-            motivo_faixa = f"Classificação '{designacao}' não mapeada automaticamente para uma faixa -- consulta o PMDFCI."
+    try:
+        juridico = motor_juridico.montar_conclusao(lat, lon)
+        classificacao_solo = juridico["answer"]["classificacao_solo"]
+    except Exception as e:
+        classificacao_solo = None
+        limitations.insert(0, f"Não foi possível obter a classificação de solo: {e}")
 
-    zona_protecao = {"centro": [lat, lon], "raio_m": faixa_m} if faixa_m else None
-
-    confianca = "Alta" if (risco and solo) else "Média"
+    faixa_m, tipo_faixa = determinar_faixa_gestao_combustivel(classificacao_solo)
 
     return {
         "engine": "Ambiental",
-        "question": "Que riscos ambientais existem, e qual a obrigação de limpeza de combustível?",
+        "question": "Que riscos ambientais existem, e que obrigações legais de segurança se aplicam?",
+        "coordinates": {"lat": lat, "lon": lon},
         "answer": {
-            "classe_risco_incendio": classe_risco,
-            "ja_ardeu_antes": ja_ardeu,
-            "faixa_gestao_combustivel_m": faixa_m,
-            "motivo_faixa": motivo_faixa,
-            "distancia_estrada_mais_proxima_m": round(dist_estrada, 0) if dist_estrada else None,
-            "zona_protecao": zona_protecao,
+            "classe_risco_incendio": classe_risco.get("DESIGNACAO_PO") if classe_risco else "Não determinada",
+            "ja_ardeu_historicamente": ja_ardeu,
+            "distancia_estrada_mais_proxima_m": distancia_estrada_m,
+            "faixa_gestao_combustivel": {
+                "distancia_m": faixa_m,
+                "tipo_solo_considerado": tipo_faixa,
+                "base_legal": "Decreto-Lei 82/2021 (Sistema de Gestão Integrada de Fogos Rurais), atualizado pelo Decreto-Lei 6/2025",
+            },
         },
         "knowledge_level": "FACT",
         "confidence": {
-            "label": confianca,
-            "reason": "Classificação de risco e de solo vêm diretamente do PDM oficial de Silves.",
+            "label": "Média",
+            "reason": "Classe de risco e histórico vêm do SIG oficial de Silves; a faixa de gestão de combustível é uma obrigação legal geral aplicada à classificação de solo local.",
         },
         "limitations": limitations,
         "sources": [
             "sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer",
-            "Decreto-Lei n.º 82/2021 (alterado pelo Decreto-Lei n.º 6/2025) -- Sistema de Gestão Integrada de Fogos Rurais",
+            "Decreto-Lei 82/2021 e Decreto-Lei 6/2025 (Diário da República)",
         ],
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

@@ -1,7 +1,9 @@
 """
-Atlas - Motor Juridico (Silves)
-Modulo reutilizavel -- ver atlas_motor_juridico_silves.py para a versao
-original em linha de comandos. A logica e identica.
+Atlas - Motor Juridico
+Modulo reutilizavel -- consulta o SIG do PDM de Silves (ArcGIS REST) para
+uma coordenada GPS e devolve uma resposta estruturada seguindo o
+"Atlas Decision Engine Contract" (conclusao / evidencia / confianca /
+limitacoes / fontes).
 """
 
 import json
