@@ -30,7 +30,7 @@
   header{
     display:flex; align-items:baseline; gap:14px; padding:14px 22px;
     background:var(--teal-dark); color:var(--paper);
-    border-bottom:3px solid var(--clay); flex-shrink:0;
+    border-bottom:3px solid var(--clay); flex-shrink:0; flex-wrap:wrap;
   }
   header h1{font-family:var(--font-display); font-size:1.35rem; font-weight:700; margin:0; letter-spacing:0.2px;}
   header .tag{
@@ -39,7 +39,6 @@
     text-transform:uppercase; letter-spacing:0.06em;
   }
   header .spacer{flex:1;}
-  header .subtitle{font-size:0.8rem; color:#cfe3dc; font-style:italic;}
   main{flex:1; display:flex; min-height:0;}
   #map{flex:1 1 60%; background:var(--map-bg); min-width:0;}
   #panel{
@@ -131,17 +130,17 @@
   #legenda-ran-ren .swatch-color{width:11px; height:11px; border-radius:2px; flex-shrink:0; border:1px solid rgba(255,255,255,0.4);}
 
   #modal-3d{
-    display:none; position:fixed; inset:0; z-index:2000;
-    background:#0a0f0d; flex-direction:column;
+    display:none; position:fixed; inset:0; background:#0c1210; z-index:1000;
+    flex-direction:column;
   }
-  #modal-3d.aberto{ display:flex; }
+  #modal-3d.aberto{display:flex;}
   #modal-3d-topbar{
-    display:flex; align-items:center; gap:16px; padding:10px 16px;
-    background:var(--teal-dark); color:var(--paper); font-family:var(--font-body); font-size:0.85rem;
+    display:flex; align-items:center; gap:14px; padding:10px 16px;
+    background:var(--teal-dark); color:var(--paper); font-family:var(--font-mono); font-size:0.8rem;
   }
-  #modal-3d-topbar span:nth-child(2){ flex:1; color:#cfe3dc; font-family:var(--font-mono); font-size:0.78rem; }
-  #canvas-3d-container{ flex:1; position:relative; }
-  #canvas-3d-container canvas{ display:block; }
+  #modal-3d-topbar span:first-child{font-weight:600;}
+  #info-3d{flex:1; color:#cfe3dc;}
+  #canvas-3d-container{flex:1; position:relative;}
 </style>
 </head>
 <body>
@@ -169,8 +168,7 @@
       <div class="hint">
         <strong>Como funciona:</strong> dá zoom até veres os limites das parcelas
         e clica dentro de uma. O Atlas consulta agora o <strong>backend próprio</strong>
-        (que por sua vez fala com o SIG de Silves e com o PVGIS/EU-DEM) e devolve a
-        análise dos motores <strong>Jurídico</strong>, <strong>Energético</strong>,
+        e devolve a análise dos motores <strong>Jurídico</strong>, <strong>Energético</strong>,
         <strong>Agronómico</strong>, <strong>Hídrico</strong> e <strong>Ambiental</strong>.
       </div>
     </div>
@@ -191,8 +189,6 @@
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-  // Camadas visuais (decorativas, direto do browser -- não são o motor
-  // jurídico a decidir nada, são só o mesmo desenho que o SIG oficial usa).
   const CADASTRO_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/CadastroDGTwfs/MapServer";
   const CADASTRO_PREDIO_LAYER_ID = 2;
   const PDM_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/PDM_MS/MapServer";
@@ -230,9 +226,6 @@
   map.on('zoomend', atualizarCamadaCadastral);
   atualizarCamadaCadastral();
 
-  // Camada de condicionantes (RAN/REN) -- desenhada pelo próprio servidor,
-  // com as cores oficiais que o SIG de Silves já usa. Começa ligada por
-  // omissão, com opção de desligar (fica pesada em zooms muito afastados).
   let ranRenLayer = null;
   function atualizarCamadaRanRen(visivel) {
     if (visivel) {
@@ -248,12 +241,10 @@
   }
   atualizarCamadaRanRen(false);
 
-  // (RAN/REN agora tem controlo próprio no cabeçalho, junto à pesquisa de parcela)
   document.getElementById('toggle-ran-ren').addEventListener('change', (e) => {
     atualizarCamadaRanRen(e.target.checked);
   });
 
-  // ----- Pesquisa de parcela: dropdowns em cascata (Freguesia -> Secção -> Prédio) -----
   let parcelaEncontradaLayer = null;
 
   async function valoresDistintos(campo, where) {
@@ -302,7 +293,7 @@
     const freguesiaEsc = selFreguesia.value.replace(/'/g, "''");
     const seccaoEsc = selSeccao.value.replace(/'/g, "''");
     const valores = await valoresDistintos('nprd', `FREG='${freguesiaEsc}' AND seccao='${seccaoEsc}'`);
-    popularSelect(selPredio, valores.map(v => (Number.isInteger(v) ? v : v)), 'Prédio nº');
+    popularSelect(selPredio, valores, 'Prédio nº');
   });
 
   carregarFreguesias();
@@ -342,18 +333,32 @@
     }
   }
 
-  // ----- Modo Charca (barragem/represa) -----
   let charcaModoAtivo = false;
   let terraplanagemModoAtivo = false;
+  let agriculturaModoAtivo = false;
   let terraplanagemPontos = [];
   let terraplanagemLayers = [];
   let terraplanagemOverlay = null;
-  let charcaBarreira = [];    // 2 ou mais pontos, permite barreiras em arco
+  let agriculturaPontos = [];
+  let agriculturaLayers = [];
+  let agriculturaResultadoArea = null;
+  let listaCulturas = null;
+  let charcaBarreira = [];
   let charcaMontante = null;
-  let charcaFase = 'barreira';   // 'barreira' -> 'montante' -> 'pronto'
-  let charcaLayers = [];   // marcadores/linha desenhados no mapa, para limpar depois
-  let mancheOverlay = null; // imagem da área inundada, desenhada por cima do mapa
-  let zonaProtecaoLayer = null; // círculo da faixa de gestão de combustível (Motor Ambiental)
+  let charcaFase = 'barreira';
+  let charcaLayers = [];
+  let mancheOverlay = null;
+  let dados3D = null;
+  let ultimaCharcaResultado = null;
+  let ultimaTerraplanagemResultado = null;
+  let parcelasLayer3D = null;
+  let charcaPlano3D = null;
+  let terraplanagemPlano3D = null;
+  let cena3D, camera3D, renderer3D, controlos3D, malha3D;
+  let animando3D = false;
+  let texturaOrto3D = null;
+  let vista3DModoSatelite = false;
+  let zonaProtecaoLayer = null;
 
   const CharcaControl = L.Control.extend({
     options: { position: 'bottomleft' },
@@ -362,6 +367,7 @@
       div.innerHTML = `
         <button id="btn-charca" class="charca-btn">💧 Calcular charca (manual)</button>
         <button id="btn-terraplanagem" class="charca-btn" style="margin-top:6px;">⛏️ Calcular terraplanagem</button>
+        <button id="btn-agricultura" class="charca-btn" style="margin-top:6px;">🌾 Planeamento Agrícola</button>
         <button id="btn-ver-3d" class="charca-btn" style="margin-top:6px;">🗻 Ver em 3D</button>
       `;
       L.DomEvent.disableClickPropagation(div);
@@ -370,32 +376,489 @@
   });
   map.addControl(new CharcaControl());
 
-  // ----- Vista 3D do terreno (Three.js), zona com dados LiDAR -----
-  let dados3D = null;       // dados de elevacao recebidos do backend (cache)
-  let ultimaCharcaResultado = null;        // último resultado calculado (para desenhar em 3D)
-  let ultimaTerraplanagemResultado = null; // idem, para terraplanagem
-  let parcelasLayer3D = null;
-  let charcaPlano3D = null;
-  let terraplanagemPlano3D = null;
-  let cena3D, camera3D, renderer3D, controlos3D, malha3D;
-  let animando3D = false;
-  let texturaOrto3D = null;
-  let vista3DModoSatelite = false;
+  document.getElementById('btn-toggle-satelite-3d').addEventListener('click', () => {
+    aplicarModoSatelite3D(!vista3DModoSatelite);
+  });
+  document.getElementById('btn-fechar-3d').addEventListener('click', () => {
+    document.getElementById('modal-3d').classList.remove('aberto');
+  });
+
+  document.getElementById('btn-charca').addEventListener('click', () => {
+    terraplanagemModoAtivo = false;
+    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
+    document.getElementById('btn-terraplanagem').classList.remove('ativo');
+    limparTerraplanagem();
+
+    agriculturaModoAtivo = false;
+    document.getElementById('btn-agricultura').textContent = '🌾 Planeamento Agrícola';
+    document.getElementById('btn-agricultura').classList.remove('ativo');
+    limparAgricultura();
+
+    charcaModoAtivo = !charcaModoAtivo;
+    limparCharca();
+    const btn = document.getElementById('btn-charca');
+    if (charcaModoAtivo) {
+      btn.textContent = '✕ Sair do modo charca';
+      btn.classList.add('ativo');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      renderCharcaInstrucoes();
+    } else {
+      btn.textContent = '💧 Calcular charca (manual)';
+      btn.classList.remove('ativo');
+      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
+    }
+  });
+
+  document.getElementById('btn-terraplanagem').addEventListener('click', () => {
+    charcaModoAtivo = false;
+    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
+    document.getElementById('btn-charca').classList.remove('ativo');
+    limparCharca();
+
+    agriculturaModoAtivo = false;
+    document.getElementById('btn-agricultura').textContent = '🌾 Planeamento Agrícola';
+    document.getElementById('btn-agricultura').classList.remove('ativo');
+    limparAgricultura();
+
+    terraplanagemModoAtivo = !terraplanagemModoAtivo;
+    limparTerraplanagem();
+    const btn = document.getElementById('btn-terraplanagem');
+    if (terraplanagemModoAtivo) {
+      btn.textContent = '✕ Sair do modo terraplanagem';
+      btn.classList.add('ativo');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      renderTerraplanagemInstrucoes();
+    } else {
+      btn.textContent = '⛏️ Calcular terraplanagem';
+      btn.classList.remove('ativo');
+      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
+    }
+  });
+
+  document.getElementById('btn-agricultura').addEventListener('click', () => {
+    charcaModoAtivo = false;
+    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
+    document.getElementById('btn-charca').classList.remove('ativo');
+    limparCharca();
+
+    terraplanagemModoAtivo = false;
+    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
+    document.getElementById('btn-terraplanagem').classList.remove('ativo');
+    limparTerraplanagem();
+
+    agriculturaModoAtivo = !agriculturaModoAtivo;
+    limparAgricultura();
+    const btn = document.getElementById('btn-agricultura');
+    if (agriculturaModoAtivo) {
+      btn.textContent = '✕ Sair do planeamento agrícola';
+      btn.classList.add('ativo');
+      if (marker) { map.removeLayer(marker); marker = null; }
+      renderAgriculturaInstrucoes();
+    } else {
+      btn.textContent = '🌾 Planeamento Agrícola';
+      btn.classList.remove('ativo');
+      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
+    }
+  });
+
+  function limparCharca() {
+    charcaLayers.forEach(l => map.removeLayer(l));
+    charcaLayers = [];
+    charcaBarreira = [];
+    charcaMontante = null;
+    charcaFase = 'barreira';
+    mancheOverlay = null;
+  }
+
+  function renderCharcaInstrucoes() {
+    if (charcaFase === 'barreira') {
+      panel.innerHTML = `
+        <div class="hint">
+          <strong>Modo Charca — a desenhar a barreira (${charcaBarreira.length} ponto${charcaBarreira.length === 1 ? '' : 's'})</strong><br>
+          Clica no mapa para ires marcando os pontos da barreira, de uma margem do vale à outra
+          (podes usar mais do que 2 pontos, para uma barreira em arco/curva).
+        </div>
+        ${charcaBarreira.length >= 2 ? '<button id="btn-fechar-barreira" class="charca-btn">Fechar barreira</button>' : ''}
+      `;
+      if (charcaBarreira.length >= 2) {
+        document.getElementById('btn-fechar-barreira').addEventListener('click', () => {
+          charcaFase = 'montante';
+          renderCharcaInstrucoes();
+        });
+      }
+    } else if (charcaFase === 'montante') {
+      panel.innerHTML = `
+        <div class="hint">
+          <strong>Barreira fechada.</strong><br>
+          Agora clica num <strong>ponto a montante</strong> (dentro do vale, onde a água se vai acumular).
+        </div>
+      `;
+    }
+  }
+
+  function handleCliqueCharca(lat, lng) {
+    if (charcaFase === 'barreira') {
+      charcaBarreira.push([lat, lng]);
+      const marcador = L.circleMarker([lat, lng], { radius: 7, color: 'red', fillColor: 'red', fillOpacity: 0.8 }).addTo(map);
+      charcaLayers.push(marcador);
+      if (charcaBarreira.length >= 2) {
+        if (charcaLayers._linhaBarreira) map.removeLayer(charcaLayers._linhaBarreira);
+        const linha = L.polyline(charcaBarreira, { color: 'red', weight: 3 }).addTo(map);
+        charcaLayers.push(linha);
+        charcaLayers._linhaBarreira = linha;
+      }
+      renderCharcaInstrucoes();
+    } else if (charcaFase === 'montante') {
+      charcaMontante = [lat, lng];
+      const marcador = L.circleMarker([lat, lng], { radius: 7, color: 'blue', fillColor: 'blue', fillOpacity: 0.8 }).addTo(map);
+      charcaLayers.push(marcador);
+      charcaFase = 'pronto';
+      renderCharcaFormulario();
+    }
+  }
+
+  function renderCharcaFormulario() {
+    panel.innerHTML = `
+      <div class="hint">
+        <strong>Barreira e ponto a montante definidos.</strong><br>
+        Indica a altura da barragem (metros acima do ponto mais baixo da barreira):
+      </div>
+      <div style="margin-top:10px;">
+        <input type="number" id="input-altura-barragem" value="2" step="0.5" min="0.1" style="width:80px; padding:6px;">
+        m
+        <button id="btn-calcular-charca" class="charca-btn" style="margin-top:10px;">Calcular</button>
+        <button id="btn-recomecar-charca" class="charca-btn" style="margin-top:10px; margin-left:8px; background:var(--muted);">Recomeçar pontos</button>
+      </div>
+    `;
+    document.getElementById('btn-calcular-charca').addEventListener('click', calcularCharca);
+    document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
+      limparCharca(); renderCharcaInstrucoes();
+    });
+  }
+
+  async function calcularCharca() {
+    const altura = parseFloat(document.getElementById('input-altura-barragem').value);
+    panel.innerHTML = `<div class="loading">A calcular a charca…</div>`;
+    let data;
+    try {
+      data = await fetch('/api/motor-charca', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          barreira: charcaBarreira,
+          montante: charcaMontante,
+          altura: altura,
+        }),
+      }).then(r => r.json());
+    } catch (e) {
+      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
+      return;
+    }
+    renderCharcaResultado(data);
+  }
+
+  function renderCharcaResultado(data) {
+    if (!data.answer) {
+      panel.innerHTML = `
+        <div class="error-box">${data.confidence ? data.confidence.reason : (data.erro || 'Erro desconhecido')}</div>
+        <button id="btn-recomecar-charca" class="charca-btn">Recomeçar pontos</button>
+      `;
+      document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
+        limparCharca(); renderCharcaInstrucoes();
+      });
+      return;
+    }
+    const a = data.answer;
+    ultimaCharcaResultado = a;
+    const confClass = confClassFromLabel(data.confidence.label);
+
+    if (mancheOverlay) { map.removeLayer(mancheOverlay); mancheOverlay = null; }
+    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
+      mancheOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.85 }).addTo(map);
+      charcaLayers.push(mancheOverlay);
+    }
+
+    if (a.barreira_otimizada) {
+      const linhaOtimizada = L.polyline(a.barreira_otimizada, { color: '#ff00ff', weight: 4, dashArray: '6 4' }).addTo(map);
+      charcaLayers.push(linhaOtimizada);
+    }
+
+    panel.innerHTML = `
+      <div class="engine-card">
+        <div class="card-head"><h3>Motor Charca</h3><span class="badge">${data.confidence.label}</span></div>
+        <div class="card-body" style="display:flex; gap:12px;">
+          <div class="stamp ${confClass}">${data.confidence.label}<br>confiança</div>
+          <div style="flex:1;">
+            <p class="conclusion">${a.volume_m3.toLocaleString('pt-PT')} m³ represados</p>
+            <div class="field-row"><span class="k">Comprimento desenhado</span><span class="v">${a.comprimento_barreira_m} m</span></div>
+            ${a.comprimento_barreira_util_m != null ? `
+            <div class="field-row"><span class="k">Comprimento realmente útil</span><span class="v" style="color:#2e7d32; font-weight:600;">${a.comprimento_barreira_util_m} m</span></div>
+            <div class="field-row"><span class="k">Poupança possível</span><span class="v">${(a.comprimento_barreira_m - a.comprimento_barreira_util_m).toFixed(1)} m</span></div>` : ''}
+            <div class="field-row"><span class="k">Área inundada</span><span class="v">${a.area_inundada_ha} ha</span></div>
+            <div class="field-row"><span class="k">Nível de água</span><span class="v">${a.nivel_agua_m} m</span></div>
+            <div class="field-row"><span class="k">Profundidade máxima</span><span class="v">${a.profundidade_maxima_m} m</span></div>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top:0;">
+          <div class="limitations">${data.limitations.join(' ')}</div>
+        </div>
+      </div>
+      <button id="btn-nova-charca" class="charca-btn">Calcular outra charca</button>
+    `;
+    document.getElementById('btn-nova-charca').addEventListener('click', () => {
+      limparCharca(); renderCharcaInstrucoes();
+    });
+  }
+
+  function limparTerraplanagem() {
+    terraplanagemLayers.forEach(l => map.removeLayer(l));
+    terraplanagemLayers = [];
+    terraplanagemPontos = [];
+    if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
+  }
+
+  function renderTerraplanagemInstrucoes() {
+    panel.innerHTML = `
+      <div class="hint">
+        <strong>Modo Terraplanagem — ${terraplanagemPontos.length} pontos definidos</strong><br>
+        Clica no mapa para marcar os cantos da área a nivelar (mínimo 3). Quando terminares, clica em "Fechar área e calcular".
+      </div>
+      ${terraplanagemPontos.length >= 3 ? '<button id="btn-fechar-terraplanagem" class="charca-btn">Fechar área e calcular</button>' : ''}
+    `;
+    if (terraplanagemPontos.length >= 3) {
+      document.getElementById('btn-fechar-terraplanagem').addEventListener('click', calcularTerraplanagem);
+    }
+  }
+
+  function handleCliqueTerraplanagem(lat, lng) {
+    terraplanagemPontos.push([lat, lng]);
+    const marcador = L.circleMarker([lat, lng], { radius: 6, color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.9 }).addTo(map);
+    terraplanagemLayers.push(marcador);
+    if (terraplanagemPontos.length > 1) {
+      if (terraplanagemLayers._poligono) map.removeLayer(terraplanagemLayers._poligono);
+    }
+    const poligonoLayer = L.polygon(terraplanagemPontos, { color: '#e67e22', fillOpacity: 0.1 }).addTo(map);
+    terraplanagemLayers.push(poligonoLayer);
+    renderTerraplanagemInstrucoes();
+  }
+
+  async function calcularTerraplanagem() {
+    panel.innerHTML = `<div class="loading">A calcular corte/aterro para a área definida…</div>`;
+    let data;
+    try {
+      data = await fetch('/api/motor-terraplanagem', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poligono: terraplanagemPontos }),
+      }).then(r => r.json());
+    } catch (e) {
+      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
+      return;
+    }
+
+    if (!data.answer) {
+      panel.innerHTML = `<div class="error-box">Não foi possível calcular: ${data.confidence ? data.confidence.reason : 'erro desconhecido'}</div>
+        <button id="btn-recomecar-terra" class="charca-btn">Recomeçar</button>`;
+      document.getElementById('btn-recomecar-terra').addEventListener('click', () => { limparTerraplanagem(); renderTerraplanagemInstrucoes(); });
+      return;
+    }
+
+    const a = data.answer;
+    ultimaTerraplanagemResultado = a;
+    if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
+    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
+      terraplanagemOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.8 }).addTo(map);
+      terraplanagemLayers.push(terraplanagemOverlay);
+    }
+
+    panel.innerHTML = `
+      <div class="engine-card">
+        <div class="card-head"><h3>Terraplanagem</h3><span class="badge">${data.confidence.label}</span></div>
+        <div class="card-body">
+          <p class="conclusion">Cota-alvo: ${a.cota_alvo_m} m</p>
+          <div class="field-row"><span class="k">Área total</span><span class="v">${a.area_total_ha} ha</span></div>
+          <div class="field-row"><span class="k">Volume a cortar</span><span class="v" style="color:#e67e22;">${a.volume_corte_m3.toLocaleString('pt-PT')} m³</span></div>
+          <div class="field-row"><span class="k">Volume a aterrar</span><span class="v" style="color:#2980b9;">${a.volume_aterro_m3.toLocaleString('pt-PT')} m³</span></div>
+          <div class="field-row"><span class="k">Saldo</span><span class="v">${a.saldo_m3.toLocaleString('pt-PT')} m³ ${a.saldo_m3 > 0 ? '(sobra terra)' : a.saldo_m3 < 0 ? '(falta terra)' : '(equilibrado)'}</span></div>
+          <div class="limitations">${data.limitations.join(' ')}</div>
+        </div>
+      </div>
+      <button id="btn-nova-terra" class="charca-btn">Calcular outra área</button>
+    `;
+    document.getElementById('btn-nova-terra').addEventListener('click', () => {
+      limparTerraplanagem();
+      renderTerraplanagemInstrucoes();
+    });
+  }
+
+  function limparAgricultura() {
+    agriculturaLayers.forEach(l => map.removeLayer(l));
+    agriculturaLayers = [];
+    agriculturaPontos = [];
+    agriculturaResultadoArea = null;
+  }
+
+  function renderAgriculturaInstrucoes() {
+    panel.innerHTML = `
+      <div class="hint">
+        <strong>Planeamento Agrícola — ${agriculturaPontos.length} pontos definidos</strong><br>
+        Clica no mapa para marcar os cantos da área a analisar (mínimo 3). Quando terminares, clica em "Fechar área e calcular".
+      </div>
+      ${agriculturaPontos.length >= 3 ? '<button id="btn-fechar-agricultura" class="charca-btn">Fechar área e calcular</button>' : ''}
+    `;
+    if (agriculturaPontos.length >= 3) {
+      document.getElementById('btn-fechar-agricultura').addEventListener('click', calcularAreaCultivavel);
+    }
+  }
+
+  function handleCliqueAgricultura(lat, lng) {
+    agriculturaPontos.push([lat, lng]);
+    const marcador = L.circleMarker([lat, lng], { radius: 6, color: '#3d7a4f', fillColor: '#3d7a4f', fillOpacity: 0.9 }).addTo(map);
+    agriculturaLayers.push(marcador);
+    if (agriculturaLayers._poligono) map.removeLayer(agriculturaLayers._poligono);
+    const poligonoLayer = L.polygon(agriculturaPontos, { color: '#3d7a4f', fillOpacity: 0.1 }).addTo(map);
+    agriculturaLayers.push(poligonoLayer);
+    agriculturaLayers._poligono = poligonoLayer;
+    renderAgriculturaInstrucoes();
+  }
+
+  async function calcularAreaCultivavel() {
+    panel.innerHTML = `<div class="loading">A calcular a área cultivável…</div>`;
+    let data;
+    try {
+      data = await fetch('/api/area-cultivavel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poligono: agriculturaPontos }),
+      }).then(r => r.json());
+    } catch (e) {
+      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
+      return;
+    }
+    agriculturaResultadoArea = data;
+    if (!listaCulturas) {
+      try {
+        listaCulturas = await fetch('/api/culturas').then(r => r.json());
+      } catch (e) {
+        listaCulturas = {};
+      }
+    }
+    renderResultadoAgricultura(data, null, null);
+  }
+
+  function centroidePoligono(pontos) {
+    const lat = pontos.reduce((s, p) => s + p[0], 0) / pontos.length;
+    const lon = pontos.reduce((s, p) => s + p[1], 0) / pontos.length;
+    return [lat, lon];
+  }
+
+  function renderResultadoAgricultura(dataArea, dataRega, dataCompat) {
+    const a = dataArea.answer;
+    let areaHtml;
+    if (!a) {
+      areaHtml = `<div class="error-box">${dataArea.confidence ? dataArea.confidence.reason : 'Erro desconhecido'}</div>`;
+    } else {
+      areaHtml = `
+        <div class="engine-card">
+          <div class="card-head"><h3>Área Cultivável</h3><span class="badge">${dataArea.confidence.label}</span></div>
+          <div class="card-body">
+            <p class="conclusion">${a.area_cultivavel_ha} ha cultiváveis, de ${a.area_total_ha} ha (${a.percentagem_cultivavel}%)</p>
+            <div class="field-row"><span class="k">Excluído por declive</span><span class="v">${a.area_excluida_declive_ha} ha</span></div>
+            <div class="field-row"><span class="k">Excluído por REN</span><span class="v">${a.area_excluida_ren_ha} ha</span></div>
+            <div class="field-row"><span class="k">Em RAN (informativo)</span><span class="v">${a.area_em_ran_ha} ha</span></div>
+            <div class="field-row"><span class="k">Declive máximo considerado</span><span class="v">${a.declive_max_considerado_pct}%</span></div>
+            <div class="limitations">${dataArea.limitations.join(' ')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    const opcoesCulturas = listaCulturas ? Object.entries(listaCulturas).map(([id, nome]) => `<option value="${id}">${nome}</option>`).join('') : '';
+
+    let regaCompatHtml = '';
+    if (dataRega && dataRega.answer) {
+      const r = dataRega.answer;
+      const linhas = r.linhas_mensais.map(l => `<tr><td>${l.mes}</td><td>${l.et0_mm}</td><td>${l.kc}</td><td>${l.etc_mm}</td><td>${l.precipitacao_mm}</td><td>${l.rega_necessaria_mm}</td><td>${l.rega_necessaria_m3.toLocaleString('pt-PT')}</td></tr>`).join('');
+      regaCompatHtml += `
+        <div class="engine-card">
+          <div class="card-head"><h3>Necessidades de Rega — ${r.cultura}</h3><span class="badge">${dataRega.confidence.label}</span></div>
+          <div class="card-body">
+            <p class="conclusion">${r.total_anual_rega_m3.toLocaleString('pt-PT')} m³/ano estimados</p>
+            <details>
+              <summary>Ver detalhe mensal</summary>
+              <table class="evidence">
+                <tr><th>Mês</th><th>ET0 (mm)</th><th>Kc</th><th>ETc (mm)</th><th>Precip. (mm)</th><th>Rega (mm)</th><th>Rega (m³)</th></tr>
+                ${linhas}
+              </table>
+            </details>
+            <div class="limitations">${dataRega.limitations.join(' ')}</div>
+          </div>
+        </div>
+      `;
+    }
+    if (dataCompat && dataCompat.answer) {
+      const c = dataCompat.answer;
+      const linhasAval = c.avaliacoes.map(av => `<tr><td>${av.criterio}</td><td>${av.valor_medido ?? '—'}</td><td>${av.intervalo_publicado}</td><td>${av.resultado}</td></tr>`).join('');
+      regaCompatHtml += `
+        <div class="engine-card">
+          <div class="card-head"><h3>Compatibilidade Solo/Clima — ${c.cultura}</h3><span class="badge">${dataCompat.confidence.label}</span></div>
+          <div class="card-body">
+            <p class="conclusion">${c.resumo}</p>
+            <table class="evidence">
+              <tr><th>Critério</th><th>Medido</th><th>Publicado</th><th>Resultado</th></tr>
+              ${linhasAval}
+            </table>
+            <div class="limitations">${dataCompat.limitations.join(' ')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    panel.innerHTML = `
+      ${areaHtml}
+      <div class="engine-card">
+        <div class="card-head"><h3>Escolher cultura</h3></div>
+        <div class="card-body">
+          <select id="sel-cultura" style="padding:6px; width:100%; margin-bottom:8px;">
+            <option value="">Escolhe uma cultura…</option>
+            ${opcoesCulturas}
+          </select>
+          <button id="btn-calcular-rega-compat" class="charca-btn">Calcular rega e compatibilidade</button>
+        </div>
+      </div>
+      ${regaCompatHtml}
+      <button id="btn-nova-agricultura" class="charca-btn">Analisar outra área</button>
+    `;
+
+    document.getElementById('btn-calcular-rega-compat').addEventListener('click', async () => {
+      const culturaId = document.getElementById('sel-cultura').value;
+      if (!culturaId) return;
+      panel.innerHTML = `<div class="loading">A calcular necessidades de rega e compatibilidade…</div>`;
+      const [lat, lon] = centroidePoligono(agriculturaPontos);
+      const areaHa = a ? a.area_cultivavel_ha : 0;
+      const [rega, compat] = await Promise.all([
+        fetch(`/api/necessidades-rega?lat=${lat}&lon=${lon}&cultura=${culturaId}&area_ha=${areaHa}`).then(r => r.json()),
+        fetch(`/api/compatibilidade?lat=${lat}&lon=${lon}&cultura=${culturaId}`).then(r => r.json()),
+      ]);
+      renderResultadoAgricultura(dataArea, rega, compat);
+    });
+
+    document.getElementById('btn-nova-agricultura').addEventListener('click', () => {
+      limparAgricultura();
+      renderAgriculturaInstrucoes();
+    });
+  }
 
   function corPorElevacao(t) {
-    // Rampa hipsometrica simples: verde (baixo) -> amarelo/castanho (medio) -> branco (alto)
     if (t < 0.5) {
-      const u = t / 0.5;
-      return new THREE.Color(0.25 + 0.35 * u, 0.55 - 0.05 * u, 0.15);
+      const s = t / 0.5;
+      return { r: 0.20 + s * 0.55, g: 0.45 + s * 0.30, b: 0.15 + s * 0.10 };
     } else {
-      const u = (t - 0.5) / 0.5;
-      return new THREE.Color(0.60 + 0.35 * u, 0.50 + 0.30 * u, 0.30 + 0.55 * u);
+      const s = (t - 0.5) / 0.5;
+      return { r: 0.75 + s * 0.20, g: 0.75 + s * 0.20, b: 0.25 + s * 0.65 };
     }
   }
 
   function construirMalha3D(dados) {
     const { n_linhas, n_cols, pixel_m, elevacoes, elevacao_min, elevacao_max } = dados;
-    const exagero = 1.6; // ligeiro exagero vertical, terreno real fica visualmente "achatado" senao
+    const exagero = 1.6;
     const geometria = new THREE.BufferGeometry();
     const posicoes = new Float32Array(n_linhas * n_cols * 3);
     const cores = new Float32Array(n_linhas * n_cols * 3);
@@ -414,7 +877,6 @@
         const t = (elev - elevacao_min) / Math.max(1, (elevacao_max - elevacao_min));
         const cor = corPorElevacao(t);
         cores[idx * 3] = cor.r; cores[idx * 3 + 1] = cor.g; cores[idx * 3 + 2] = cor.b;
-        // linha 0 = canto noroeste (norte) -> topo da imagem de satélite (v=1)
         uvs[idx * 2] = col / (n_cols - 1);
         uvs[idx * 2 + 1] = 1 - row / (n_linhas - 1);
         idx++;
@@ -455,7 +917,6 @@
       texturaOrto3D = textura;
       if (vista3DModoSatelite) aplicarModoSatelite3D(true);
     }, undefined, () => {
-      // falha a carregar (sem rede, servico em baixo, etc.) -- fica só com cores por altitude
       texturaOrto3D = null;
     });
   }
@@ -474,17 +935,6 @@
     malha3D.material.needsUpdate = true;
     const btn = document.getElementById('btn-toggle-satelite-3d');
     if (btn) btn.textContent = usarSatelite ? '⛰️ Ver por altitude' : '🛰️ Ver satélite';
-  }
-
-  function pixelParaLatLon(dados, row, col) {
-    // Interpolacao bilinear entre os 4 cantos conhecidos -- aproximacao
-    // valida para a pequena area coberta pelo LiDAR (poucos km).
-    const fr = row / (dados.n_linhas - 1);
-    const fc = col / (dados.n_cols - 1);
-    const { noroeste, nordeste, sudoeste, sudeste } = dados.cantos;
-    const topo = [noroeste[0] + fc * (nordeste[0] - noroeste[0]), noroeste[1] + fc * (nordeste[1] - noroeste[1])];
-    const fundo = [sudoeste[0] + fc * (sudeste[0] - sudoeste[0]), sudoeste[1] + fc * (sudeste[1] - sudoeste[1])];
-    return [topo[0] + fr * (fundo[0] - topo[0]), topo[1] + fr * (fundo[1] - topo[1])];
   }
 
   async function carregarParcelas3D() {
@@ -561,7 +1011,6 @@
     const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
     const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
     const y = (elevacaoM - dados3D.elevacao_min) * 1.6 + 0.5;
-    // ligeiro excesso de tamanho, para nao deixar frestas visiveis entre celulas vizinhas
     const meia = (tamanhoCelula / 2) * 1.5;
 
     const posicoes = new Float32Array(celulas.length * 4 * 3);
@@ -589,7 +1038,7 @@
       depthWrite: false, depthTest: false,
     });
     const malha = new THREE.Mesh(geometria, material);
-    malha.renderOrder = 1;  // desenhar sempre depois (por cima) do terreno
+    malha.renderOrder = 1;
     return malha;
   }
 
@@ -626,9 +1075,56 @@
     const modal = document.getElementById('modal-3d');
     modal.classList.add('aberto');
     const infoEl = document.getElementById('info-3d');
-    infoEl.textContent = 'A carregar terreno…';
+
+    if (!cena3D) {
+      cena3D = new THREE.Scene();
+      cena3D.background = new THREE.Color(0x0c1210);
+      const container = document.getElementById('canvas-3d-container');
+      camera3D = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
+      renderer3D = new THREE.WebGLRenderer({ antialias: true });
+      renderer3D.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer3D.domElement);
+
+      const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6);
+      cena3D.add(luzAmbiente);
+      const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.8);
+      luzDirecional.position.set(1, 1.5, 1);
+      cena3D.add(luzDirecional);
+
+      controlos3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+      controlos3D.enableDamping = true;
+
+      window.addEventListener('resize', () => {
+        if (!modal.classList.contains('aberto')) return;
+        camera3D.aspect = container.clientWidth / container.clientHeight;
+        camera3D.updateProjectionMatrix();
+        renderer3D.setSize(container.clientWidth, container.clientHeight);
+      });
+
+      renderer3D.domElement.addEventListener('click', (ev) => {
+        if (!dados3D || !malha3D) return;
+        const rect = renderer3D.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+          -((ev.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, camera3D);
+        const intersecoes = raycaster.intersectObject(malha3D);
+        if (intersecoes.length > 0) {
+          const p = intersecoes[0].point;
+          const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
+          const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
+          const col = (p.x + largura / 2) / dados3D.pixel_m;
+          const row = (p.z + profundidade / 2) / dados3D.pixel_m;
+          const elevReal = dados3D.elevacao_min + p.y / 1.6;
+          infoEl.textContent = `Célula (linha ${row.toFixed(0)}, coluna ${col.toFixed(0)}) — elevação ≈ ${elevReal.toFixed(1)}m`;
+        }
+      });
+    }
 
     if (!dados3D) {
+      infoEl.textContent = 'A carregar terreno…';
       try {
         dados3D = await fetch('/api/elevacao-3d').then(r => r.json());
         if (dados3D.erro) throw new Error(dados3D.erro);
@@ -638,56 +1134,8 @@
       }
     }
 
-    const container = document.getElementById('canvas-3d-container');
-    if (!cena3D) {
-      cena3D = new THREE.Scene();
-      cena3D.background = new THREE.Color(0x0a0f0d);
-
-      camera3D = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 1, 20000);
-
-      renderer3D = new THREE.WebGLRenderer({ antialias: true });
-      renderer3D.setSize(container.clientWidth, container.clientHeight);
-      container.appendChild(renderer3D.domElement);
-
-      cena3D.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.8);
-      luzDirecional.position.set(500, 800, 300);
-      cena3D.add(luzDirecional);
-
-      controlos3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
-      controlos3D.enableDamping = true;
-
-      renderer3D.domElement.addEventListener('click', (e) => {
-        const rect = renderer3D.domElement.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1
-        );
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(mouse, camera3D);
-        const intersecoes = raycaster.intersectObject(malha3D);
-        if (intersecoes.length > 0) {
-          const p = intersecoes[0].point;
-          const col = p.x / dados3D.pixel_m;
-          const row = p.z / dados3D.pixel_m;
-          const [lat, lon] = pixelParaLatLon(dados3D, row, col);
-          const elevReal = dados3D.elevacao_min + p.y / 1.6;
-          document.getElementById('info-3d').textContent =
-            `lat ${lat.toFixed(6)}, lon ${lon.toFixed(6)} — elevação ≈ ${elevReal.toFixed(1)}m`;
-        }
-      });
-
-      window.addEventListener('resize', () => {
-        if (!document.getElementById('modal-3d').classList.contains('aberto')) return;
-        camera3D.aspect = container.clientWidth / container.clientHeight;
-        camera3D.updateProjectionMatrix();
-        renderer3D.setSize(container.clientWidth, container.clientHeight);
-      });
-    }
-
     if (malha3D) cena3D.remove(malha3D);
     malha3D = construirMalha3D(dados3D);
-    // Centrar a malha na origem, para os controlos de orbita rodarem a volta do centro do terreno
     const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
     const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
     malha3D.position.set(-largura / 2, 0, -profundidade / 2);
@@ -721,292 +1169,6 @@
   }
 
   document.getElementById('btn-ver-3d').addEventListener('click', abrirVista3D);
-  document.getElementById('btn-toggle-satelite-3d').addEventListener('click', () => {
-    aplicarModoSatelite3D(!vista3DModoSatelite);
-  });
-  document.getElementById('btn-fechar-3d').addEventListener('click', () => {
-    document.getElementById('modal-3d').classList.remove('aberto');
-  });
-
-  function limparCharca() {
-    charcaLayers.forEach(l => map.removeLayer(l));
-    charcaLayers = [];
-    charcaBarreira = [];
-    charcaMontante = null;
-    charcaFase = 'barreira';
-    mancheOverlay = null;
-  }
-
-  document.getElementById('btn-charca').addEventListener('click', () => {
-    terraplanagemModoAtivo = false;
-    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
-    document.getElementById('btn-terraplanagem').classList.remove('ativo');
-    limparTerraplanagem();
-    charcaModoAtivo = !charcaModoAtivo;
-    limparCharca();
-    const btn = document.getElementById('btn-charca');
-    if (charcaModoAtivo) {
-      btn.textContent = '✕ Sair do modo charca';
-      btn.classList.add('ativo');
-      if (marker) { map.removeLayer(marker); marker = null; }
-      renderCharcaInstrucoes();
-    } else {
-      btn.textContent = '💧 Calcular charca (manual)';
-      btn.classList.remove('ativo');
-      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
-    }
-  });
-
-  document.getElementById('btn-terraplanagem').addEventListener('click', () => {
-    charcaModoAtivo = false;
-    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
-    document.getElementById('btn-charca').classList.remove('ativo');
-    limparCharca();
-
-    terraplanagemModoAtivo = !terraplanagemModoAtivo;
-    limparTerraplanagem();
-    const btn = document.getElementById('btn-terraplanagem');
-    if (terraplanagemModoAtivo) {
-      btn.textContent = '✕ Sair do modo terraplanagem';
-      btn.classList.add('ativo');
-      if (marker) { map.removeLayer(marker); marker = null; }
-      renderTerraplanagemInstrucoes();
-    } else {
-      btn.textContent = '⛏️ Calcular terraplanagem';
-      btn.classList.remove('ativo');
-      panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
-    }
-  });
-
-  function limparTerraplanagem() {
-    terraplanagemLayers.forEach(l => map.removeLayer(l));
-    terraplanagemLayers = [];
-    terraplanagemPontos = [];
-    if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
-  }
-
-  function renderTerraplanagemInstrucoes() {
-    panel.innerHTML = `
-      <div class="hint">
-        <strong>Modo Terraplanagem — ${terraplanagemPontos.length} pontos definidos</strong><br>
-        Clica no mapa para marcar os cantos da área a nivelar (mínimo 3). Quando terminares, clica em "Fechar área e calcular".
-      </div>
-      ${terraplanagemPontos.length >= 3 ? '<button id="btn-fechar-terraplanagem" class="charca-btn">Fechar área e calcular</button>' : ''}
-    `;
-    if (terraplanagemPontos.length >= 3) {
-      document.getElementById('btn-fechar-terraplanagem').addEventListener('click', calcularTerraplanagem);
-    }
-  }
-
-  function handleCliqueTerraplanagem(lat, lng) {
-    terraplanagemPontos.push([lat, lng]);
-    const marcador = L.circleMarker([lat, lng], { radius: 6, color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.9 }).addTo(map);
-    terraplanagemLayers.push(marcador);
-    if (terraplanagemPontos.length > 1) {
-      if (terraplanagemLayers._poligono) map.removeLayer(terraplanagemLayers._poligono);
-    }
-    const poligonoLayer = L.polygon(terraplanagemPontos, { color: '#e67e22', fillOpacity: 0.1 }).addTo(map);
-    terraplanagemLayers.push(poligonoLayer);
-    renderTerraplanagemInstrucoes();
-  }
-
-  async function calcularTerraplanagem() {
-    panel.innerHTML = `<div class="loading">A calcular corte/aterro para a área definida…</div>`;
-    let data;
-    try {
-      data = await fetch('/api/motor-terraplanagem', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ poligono: terraplanagemPontos }),
-      }).then(r => r.json());
-    } catch (e) {
-      panel.innerHTML = `<div class="error-box">Erro ao consultar: ${e}</div>`;
-      return;
-    }
-
-    if (!data.answer) {
-      panel.innerHTML = `<div class="error-box">Não foi possível calcular: ${data.confidence ? data.confidence.reason : 'erro desconhecido'}</div>
-        <button id="btn-recomecar-terra" class="charca-btn">Recomeçar</button>`;
-      document.getElementById('btn-recomecar-terra').addEventListener('click', () => { limparTerraplanagem(); renderTerraplanagemInstrucoes(); });
-      return;
-    }
-
-    const a = data.answer;
-    ultimaTerraplanagemResultado = a;  // guardado para a sobreposição na vista 3D
-    if (terraplanagemOverlay) { map.removeLayer(terraplanagemOverlay); terraplanagemOverlay = null; }
-    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
-      terraplanagemOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.8 }).addTo(map);
-      terraplanagemLayers.push(terraplanagemOverlay);
-    }
-
-    panel.innerHTML = `
-      <div class="engine-card">
-        <div class="card-head"><h3>Terraplanagem</h3><span class="badge">${data.confidence.label}</span></div>
-        <div class="card-body">
-          <p class="conclusion">Cota-alvo: ${a.cota_alvo_m} m</p>
-          <div class="field-row"><span class="k">Área total</span><span class="v">${a.area_total_ha} ha</span></div>
-          <div class="field-row"><span class="k">Volume a cortar</span><span class="v" style="color:#e67e22;">${a.volume_corte_m3.toLocaleString('pt-PT')} m³</span></div>
-          <div class="field-row"><span class="k">Volume a aterrar</span><span class="v" style="color:#2980b9;">${a.volume_aterro_m3.toLocaleString('pt-PT')} m³</span></div>
-          <div class="field-row"><span class="k">Saldo</span><span class="v">${a.saldo_m3.toLocaleString('pt-PT')} m³ ${a.saldo_m3 > 0 ? '(sobra terra)' : a.saldo_m3 < 0 ? '(falta terra)' : '(equilibrado)'}</span></div>
-          <p style="font-size:0.8rem; color:var(--muted); margin-top:10px;"><strong>Confiança:</strong> ${data.confidence.reason}</p>
-          <div class="limitations">${data.limitations.join(' ')}</div>
-        </div>
-      </div>
-      <button id="btn-nova-terra" class="charca-btn">Calcular outra área</button>
-    `;
-    document.getElementById('btn-nova-terra').addEventListener('click', () => {
-      limparTerraplanagem();
-      renderTerraplanagemInstrucoes();
-    });
-  }
-
-  function renderCharcaInstrucoes() {
-    if (charcaFase === 'barreira') {
-      panel.innerHTML = `
-        <div class="hint">
-          <strong>Modo Charca — a desenhar a barreira (${charcaBarreira.length} ponto${charcaBarreira.length === 1 ? '' : 's'})</strong><br>
-          Clica no mapa para ires marcando os pontos da barreira, de uma margem do vale à outra
-          (podes usar mais do que 2 pontos, para uma barreira em arco/curva).
-        </div>
-        ${charcaBarreira.length >= 2 ? '<button id="btn-fechar-barreira" class="charca-btn">Fechar barreira</button>' : ''}
-      `;
-      if (charcaBarreira.length >= 2) {
-        document.getElementById('btn-fechar-barreira').addEventListener('click', () => {
-          charcaFase = 'montante';
-          renderCharcaInstrucoes();
-        });
-      }
-    } else if (charcaFase === 'montante') {
-      panel.innerHTML = `
-        <div class="hint">
-          <strong>Barreira fechada.</strong><br>
-          Agora clica num <strong>ponto a montante</strong> (dentro do vale, onde a água se vai acumular).
-        </div>
-      `;
-    }
-  }
-
-  function handleCliqueCharca(lat, lng) {
-    if (charcaFase === 'barreira') {
-      charcaBarreira.push([lat, lng]);
-      const marcador = L.circleMarker([lat, lng], { radius: 7, color: 'red', fillColor: 'red', fillOpacity: 0.8 }).addTo(map);
-      charcaLayers.push(marcador);
-      if (charcaBarreira.length >= 2) {
-        if (charcaLayers._linhaBarreira) map.removeLayer(charcaLayers._linhaBarreira);
-        const linha = L.polyline(charcaBarreira, { color: 'red', weight: 3 }).addTo(map);
-        charcaLayers.push(linha);
-        charcaLayers._linhaBarreira = linha;
-      }
-      renderCharcaInstrucoes();
-    } else if (charcaFase === 'montante') {
-      charcaMontante = [lat, lng];
-      const marcador = L.circleMarker([lat, lng], { radius: 7, color: 'blue', fillColor: 'blue', fillOpacity: 0.8 }).addTo(map);
-      charcaLayers.push(marcador);
-      charcaFase = 'pronto';
-      renderCharcaFormulario();
-    }
-  }
-
-  function renderCharcaFormulario() {
-    panel.innerHTML = `
-      <div class="hint"><strong>Pontos definidos.</strong> Introduz a altura da barragem e calcula.</div>
-      <div class="engine-card">
-        <div class="card-head"><h3>Calcular Charca</h3></div>
-        <div class="card-body">
-          <div class="field-row">
-            <span class="k">Altura da barragem</span>
-            <span class="v"><input type="number" id="input-altura" value="3" min="0.5" step="0.5" style="width:70px;"> metros</span>
-          </div>
-          <button id="btn-calcular-charca" class="charca-btn" style="margin-top:10px;">Calcular</button>
-          <button id="btn-recomecar-charca" class="charca-btn" style="margin-top:10px; margin-left:8px; background:var(--muted);">Recomeçar pontos</button>
-        </div>
-      </div>
-    `;
-    document.getElementById('btn-calcular-charca').addEventListener('click', calcularCharca);
-    document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
-      limparCharca();
-      renderCharcaInstrucoes();
-    });
-  }
-
-  async function calcularCharca() {
-    const altura = parseFloat(document.getElementById('input-altura').value) || 3.0;
-    panel.innerHTML = `<div class="loading">A calcular volume da charca (MDT LiDAR 2m)…</div>`;
-    try {
-      const resp = await fetch('/api/motor-charca', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          barreira: charcaBarreira,
-          montante: charcaMontante,
-          altura: altura,
-        }),
-      });
-      const data = await resp.json();
-      renderCharcaResultado(data);
-    } catch (err) {
-      panel.innerHTML = `<div class="error-box">Erro ao calcular: ${err}</div>
-        <button id="btn-recomecar-charca" class="charca-btn">Recomeçar pontos</button>`;
-      document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
-        limparCharca(); renderCharcaInstrucoes();
-      });
-    }
-  }
-
-  function renderCharcaResultado(data) {
-    if (!data.answer) {
-      panel.innerHTML = `
-        <div class="error-box">${data.confidence ? data.confidence.reason : (data.erro || 'Erro desconhecido')}</div>
-        <button id="btn-recomecar-charca" class="charca-btn">Recomeçar pontos</button>
-      `;
-      document.getElementById('btn-recomecar-charca').addEventListener('click', () => {
-        limparCharca(); renderCharcaInstrucoes();
-      });
-      return;
-    }
-    const a = data.answer;
-    ultimaCharcaResultado = a;  // guardado para a sobreposição na vista 3D
-    const confClass = confClassFromLabel(data.confidence.label);
-
-    // Desenhar a mancha da área inundada, se o backend a devolveu
-    if (mancheOverlay) { map.removeLayer(mancheOverlay); mancheOverlay = null; }
-    if (a.mancha_imagem_png_base64 && a.mancha_bounds) {
-      mancheOverlay = L.imageOverlay(a.mancha_imagem_png_base64, a.mancha_bounds, { opacity: 0.85 }).addTo(map);
-      charcaLayers.push(mancheOverlay);  // é removida da próxima vez que limparCharca() correr
-    }
-
-    // Barreira otimizada (troço realmente útil), desenhada a verde por
-    // cima da barreira original desenhada a vermelho
-    if (a.barreira_otimizada) {
-      const linhaOtimizada = L.polyline(a.barreira_otimizada, { color: '#ff00ff', weight: 4, dashArray: '6 4' }).addTo(map);
-      charcaLayers.push(linhaOtimizada);
-    }
-
-    panel.innerHTML = `
-      <div class="engine-card">
-        <div class="card-head"><h3>Motor Charca</h3><span class="badge">implementado</span></div>
-        <div class="card-body" style="display:flex; gap:12px;">
-          <div class="stamp ${confClass}">${data.confidence.label}<br>confiança</div>
-          <div style="flex:1;">
-            <p class="conclusion">${a.volume_m3.toLocaleString('pt-PT')} m³ represados</p>
-            <div class="field-row"><span class="k">Comprimento desenhado</span><span class="v">${a.comprimento_barreira_m} m</span></div>
-            ${a.comprimento_barreira_util_m != null ? `
-            <div class="field-row"><span class="k">Comprimento realmente útil</span><span class="v" style="color:#2e7d32; font-weight:600;">${a.comprimento_barreira_util_m} m</span></div>
-            <div class="field-row"><span class="k">Poupança possível</span><span class="v">${(a.comprimento_barreira_m - a.comprimento_barreira_util_m).toFixed(1)} m</span></div>` : ''}
-            <div class="field-row"><span class="k">Área inundada</span><span class="v">${a.area_inundada_ha} ha</span></div>
-            <div class="field-row"><span class="k">Nível de água</span><span class="v">${a.nivel_agua_m} m</span></div>
-            <div class="field-row"><span class="k">Profundidade máxima</span><span class="v">${a.profundidade_maxima_m} m</span></div>
-          </div>
-        </div>
-        <div class="card-body" style="padding-top:0;">
-          <div class="limitations">${data.limitations.join(' ')}</div>
-        </div>
-      </div>
-      <button id="btn-nova-charca" class="charca-btn">Calcular outra charca</button>
-    `;
-    document.getElementById('btn-nova-charca').addEventListener('click', () => {
-      limparCharca(); renderCharcaInstrucoes();
-    });
-  }
 
   let marker = null;
   const panel = document.getElementById('panel');
@@ -1022,14 +1184,15 @@
       handleCliqueTerraplanagem(lat, lng);
       return;
     }
+    if (agriculturaModoAtivo) {
+      handleCliqueAgricultura(lat, lng);
+      return;
+    }
     if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lng]).addTo(map);
 
     renderLoading(lat, lng);
 
-    // Agora falamos só com o NOSSO backend -- ele é que sabe falar com
-    // Silves, com o PVGIS e com o EU-DEM. O browser já não precisa de
-    // conhecer nenhum desses serviços diretamente.
     const [juridicoResult, solarResult, agricolaResult, hidricoResult, ambientalResult] = await Promise.allSettled([
       fetch(`/api/motor-juridico?lat=${lat}&lon=${lng}`).then(r => r.json()),
       fetch(`/api/motor-solar?lat=${lat}&lon=${lng}`).then(r => r.json()),
@@ -1053,7 +1216,7 @@
         <span>PROCESSO ${refNumber(lat, lon)}</span>
         <span>${new Date().toLocaleString('pt-PT')}</span>
       </div>
-      <div class="loading">A consultar o backend do Atlas (motor jurídico + motor energético)…</div>
+      <div class="loading">A consultar o backend do Atlas (5 motores)…</div>
     `;
   }
 
@@ -1065,8 +1228,18 @@
     return 'baixa';
   }
 
+  function sN(bool) {
+    return bool ? 'Sim' : 'Não';
+  }
+
+  function refNumber(lat, lon) {
+    const raw = `${lat.toFixed(5)}${lon.toFixed(5)}`;
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+    return `SLV-${(hash % 99999).toString().padStart(5, '0')}`;
+  }
+
   function renderResults(lat, lon, juridico, solar, agricola, hidrico, ambiental) {
-    // --- Identidade da parcela ---
     let identidadeHtml;
     const ip = juridico && juridico.identidade_parcela;
     if (ip) {
@@ -1088,7 +1261,6 @@
         </div>`;
     }
 
-    // --- Motor Jurídico ---
     let juridicoHtml;
     if (juridico && juridico.answer) {
       const confClass = confClassFromLabel(juridico.confidence.label);
@@ -1120,7 +1292,6 @@
         <div class="locked-note">Erro ao consultar: ${juridico && juridico.erro ? juridico.erro : 'desconhecido'}</div></div>`;
     }
 
-    // --- Motor Energético ---
     let solarHtml;
     if (solar && solar.answer) {
       const mc = solar.answer.melhor_caso;
@@ -1154,7 +1325,6 @@
         <div class="locked-note">Erro ao consultar: ${solar && (solar.erro || (solar.confidence && solar.confidence.reason)) || 'desconhecido'}</div></div>`;
     }
 
-    // --- Motor Agronómico ---
     let agricolaHtml;
     if (agricola && agricola.answer) {
       const a = agricola.answer;
@@ -1182,21 +1352,18 @@
         <div class="locked-note">Erro ao consultar: ${agricola && (agricola.erro || (agricola.confidence && agricola.confidence.reason)) || 'desconhecido'}</div></div>`;
     }
 
-    // --- Motor Hídrico ---
     let hidricoHtml;
     if (hidrico && hidrico.answer) {
       const h = hidrico.answer;
-      const confClass = confClassFromLabel(hidrico.confidence.label);
       const ind = h.indicadores_num_raio_1km;
-      const sN = (v) => v ? 'Sim' : 'Não';
+      const confClass = confClassFromLabel(hidrico.confidence.label);
       hidricoHtml = `
         <div class="engine-card">
           <div class="card-head"><h3>Motor Hídrico</h3><span class="badge">implementado</span></div>
           <div class="card-body" style="display:flex; gap:12px;">
             <div class="stamp ${confClass}">${hidrico.confidence.label}<br>confiança</div>
             <div style="flex:1;">
-              <p class="conclusion">${h.precipitacao_classificacao || 'Precipitação não determinada'}</p>
-              <div class="field-row"><span class="k">Precipitação média</span><span class="v">${h.precipitacao_media_mm_ano} mm/ano (${h.periodo_referencia_precipitacao})</span></div>
+              <p class="conclusion">${h.precipitacao_media_mm_ano} mm/ano (${h.precipitacao_classificacao})</p>
               <div class="field-row"><span class="k">Água de superfície (1km)</span><span class="v">${sN(ind.agua_superficie_perto)}</span></div>
               <div class="field-row"><span class="k">Captação subterrânea (1km)</span><span class="v">${sN(ind.captacao_subterranea_perto)}</span></div>
               <div class="field-row"><span class="k">Infraestrutura de rega (1km)</span><span class="v">${sN(ind.infraestrutura_rega_perto)}</span></div>
@@ -1221,33 +1388,35 @@
         <div class="locked-note">Erro ao consultar: ${hidrico && (hidrico.erro || (hidrico.confidence && hidrico.confidence.reason)) || 'desconhecido'}</div></div>`;
     }
 
-    // --- Motor Ambiental ---
     let ambientalHtml;
-    if (zonaProtecaoLayer) { map.removeLayer(zonaProtecaoLayer); zonaProtecaoLayer = null; }
     if (ambiental && ambiental.answer) {
       const amb = ambiental.answer;
       const confClass = confClassFromLabel(ambiental.confidence.label);
-      if (amb.zona_protecao) {
-        zonaProtecaoLayer = L.circle(amb.zona_protecao.centro, {
-          radius: amb.zona_protecao.raio_m, color: '#c0392b', weight: 2, fillOpacity: 0.08, dashArray: '6,4'
-        }).addTo(map);
-      }
+      if (zonaProtecaoLayer) { map.removeLayer(zonaProtecaoLayer); zonaProtecaoLayer = null; }
+      zonaProtecaoLayer = L.circle([lat, lon], {
+        radius: amb.faixa_gestao_combustivel.distancia_m,
+        color: '#c0392b', weight: 2, dashArray: '5 5', fillOpacity: 0.05,
+      }).addTo(map);
       ambientalHtml = `
         <div class="engine-card">
           <div class="card-head"><h3>Motor Ambiental</h3><span class="badge">implementado</span></div>
           <div class="card-body" style="display:flex; gap:12px;">
             <div class="stamp ${confClass}">${ambiental.confidence.label}<br>confiança</div>
             <div style="flex:1;">
-              <p class="conclusion">${amb.classe_risco_incendio || 'Classe de risco não determinada'}</p>
-              <div class="field-row"><span class="k">Já ardeu antes</span><span class="v">${amb.ja_ardeu_antes ? 'Sim' : 'Não (nesta camada)'}</span></div>
-              <div class="field-row"><span class="k">Faixa de gestão de combustível</span><span class="v">${amb.faixa_gestao_combustivel_m ? amb.faixa_gestao_combustivel_m + ' m (desenhada no mapa)' : 'Não aplicável / não determinada'}</span></div>
-              <div class="field-row"><span class="k">Estrada mais próxima</span><span class="v">${amb.distancia_estrada_mais_proxima_m != null ? amb.distancia_estrada_mais_proxima_m + ' m' : 'Não encontrada perto'}</span></div>
+              <p class="conclusion">${amb.classe_risco_incendio}</p>
+              <div class="field-row"><span class="k">Já ardeu historicamente</span><span class="v">${amb.ja_ardeu_historicamente === null ? '—' : sN(amb.ja_ardeu_historicamente)}</span></div>
+              <div class="field-row"><span class="k">Estrada mais próxima</span><span class="v">${amb.distancia_estrada_mais_proxima_m != null ? '≈' + amb.distancia_estrada_mais_proxima_m + 'm' : 'não determinada'}</span></div>
             </div>
           </div>
           <div class="card-body" style="padding-top:0;">
-            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Obrigação legal:</strong> ${amb.motivo_faixa}</p>
-            <p style="font-size:0.8rem; color:var(--muted); margin:0 0 4px 0;"><strong>Confiança:</strong> ${ambiental.confidence.reason}</p>
+            <div class="sub-heading">Obrigação legal de gestão de combustível</div>
+            <div class="field-row"><span class="k">Faixa obrigatória</span><span class="v">${amb.faixa_gestao_combustivel.distancia_m}m (${amb.faixa_gestao_combustivel.tipo_solo_considerado})</span></div>
+            <div class="field-row"><span class="k">Base legal</span><span class="v" style="font-size:0.78rem;">${amb.faixa_gestao_combustivel.base_legal}</span></div>
+            <p style="font-size:0.78rem; color:var(--muted); margin-top:8px;">Círculo vermelho tracejado no mapa mostra a faixa à volta deste ponto.</p>
+          </div>
+          <div class="card-body" style="padding-top:0;">
             <div class="limitations">${ambiental.limitations.join(' ')}</div>
+            <p style="font-size:0.8rem; font-weight:600; color:#c0392b; margin-top:8px;">Em caso de incêndio real: 112. Este motor não substitui o Plano Municipal de Emergência.</p>
           </div>
         </div>`;
     } else {
@@ -1267,21 +1436,6 @@
       ${hidricoHtml}
       ${ambientalHtml}
     `;
-  }
-
-  function lockedEngineCard(nome, descricao) {
-    return `
-      <div class="engine-card locked">
-        <div class="card-head"><h3>${nome}</h3><span class="badge locked">🔒 por implementar</span></div>
-        <div class="locked-note">${descricao}</div>
-      </div>`;
-  }
-
-  function refNumber(lat, lon) {
-    const raw = `${lat.toFixed(5)}${lon.toFixed(5)}`;
-    let hash = 0;
-    for (let i = 0; i < raw.length; i++) hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
-    return `SLV-${(hash % 99999).toString().padStart(5, '0')}`;
   }
 </script>
 </body>
