@@ -1834,4 +1834,3 @@ ARCHITECTURAL DECISION
 from:
 FACTUAL V1 REALITY
 Once the audit is complete, Phase 1 may begin.
-END OF ATLAS_V2_ARCHITECTURE.md
