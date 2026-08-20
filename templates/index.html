@@ -188,6 +188,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/esri-leaflet/3.1.0/esri-leaflet.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="{{ url_for('static', filename='project_store.js') }}"></script>
 <script>
   const CADASTRO_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/CadastroDGTwfs/MapServer";
   const CADASTRO_PREDIO_LAYER_ID = 2;
@@ -197,6 +198,85 @@
   const ORTOS_URL = "https://sigeo.cm-silves.pt/arcgis/rest/services/ORTOS2023/MapServer";
 
   const map = L.map('map', { zoomControl: true }).setView([37.19, -8.44], 12);
+  // Phase 1 workspace: Leaflet renders state owned by ProjectStore.
+  let atlasV2DrawingActive = false;
+  let atlasV2Draft = null;
+  const atlasV2Layers = L.featureGroup().addTo(map);
+  const AtlasWorkspaceControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const box = L.DomUtil.create('div', 'leaflet-bar');
+      box.style.cssText = 'background:#f7f4ec;padding:8px;width:220px;border-radius:4px;font:12px IBM Plex Sans,sans-serif;';
+      box.innerHTML = '<strong>Workspace V2</strong><div id="atlas-v2-status" style="margin:5px 0;color:#6b6a5f;">Sem projeto aberto</div><input id="atlas-v2-name" placeholder="Nome" style="width:100%;margin:2px 0;"><select id="atlas-v2-type" style="width:100%;margin:2px 0;"><option value="zone">Zona</option><option value="platform">Plataforma</option><option value="pond">Charca</option><option value="access">Acesso</option><option value="crop_area">Área agrícola</option></select><input id="atlas-v2-parameters" value="{}" aria-label="Parâmetros JSON" style="width:100%;margin:2px 0;"><select id="atlas-v2-selector" style="width:100%;margin:2px 0;display:none;"></select><button id="atlas-v2-new" class="charca-btn">Novo projeto</button> <button id="atlas-v2-open" class="charca-btn">Listar projetos</button><br><button id="atlas-v2-scenario" class="charca-btn" style="margin-top:4px;">Novo cenário</button> <button id="atlas-v2-scenario-open" class="charca-btn" style="margin-top:4px;">Listar cenários</button><br><button id="atlas-v2-load" class="charca-btn" style="margin-top:4px;display:none;">Carregar seleção</button> <button id="atlas-v2-scenario-copy" class="charca-btn" style="margin-top:4px;">Duplicar</button><br><button id="atlas-v2-object" class="charca-btn" style="margin-top:4px;">Desenhar objeto</button> <button id="atlas-v2-finish" class="charca-btn" style="display:none;margin-top:4px;">Concluir</button><div id="atlas-v2-message" style="margin-top:5px;color:#7a2c1f;"></div>';
+      L.DomEvent.disableClickPropagation(box); return box;
+    },
+  });
+  map.addControl(new AtlasWorkspaceControl());
+  const atlasV2Geometry = (points) => ({ type: 'Polygon', coordinates: [[...points, points[0]]] });
+  function atlasV2Render() {
+    const store = window.projectStore, status = document.getElementById('atlas-v2-status'), message = document.getElementById('atlas-v2-message');
+    atlasV2Layers.clearLayers();
+    status.textContent = store.currentProject ? `Projeto: ${store.currentProject.name}${store.activeScenario ? ` · Cenário: ${store.activeScenario.name}` : ''}` : 'Sem projeto aberto';
+    message.textContent = store.lastError || '';
+    if (store.baseParcel) L.geoJSON(store.baseParcel.geometry, { style: { color:'#b5602f', weight:2, fillOpacity:.04, dashArray:'5 4' } }).addTo(atlasV2Layers);
+    const activeScenario = store.activeScenario, objects = activeScenario ? activeScenario.objects : store.objects;
+    objects.forEach((object) => {
+      const simulate = activeScenario && object.type === 'platform' ? `<button data-atlas-v2-simulate="${object.id}">Simular</button> ` : '';
+      const refresh = activeScenario && object.original_object_id ? `<button data-atlas-v2-refresh="${object.id}">Atualizar</button> ` : '';
+      const remove = `<button data-atlas-v2-delete="${object.id}">Eliminar</button>`;
+      L.geoJSON(object.geometry, { style: { color:'#2f6f62', weight:3, fillOpacity:.12 } }).bindPopup(`<strong>${object.name}</strong><br>${object.type}<br>${simulate}${refresh}<button data-atlas-v2-redraw="${object.id}">Redesenhar</button> ${remove}`).addTo(atlasV2Layers);
+    });
+  }
+  window.projectStore.subscribe(atlasV2Render);
+  map.on('popupopen', (event) => {
+    const root = event.popup.getElement(), store = window.projectStore;
+    const redraw = root.querySelector('[data-atlas-v2-redraw]'), remove = root.querySelector('[data-atlas-v2-delete]'), simulate = root.querySelector('[data-atlas-v2-simulate]'), refresh = root.querySelector('[data-atlas-v2-refresh]');
+    if (redraw) redraw.onclick = () => { const object = (store.activeScenario ? store.activeScenario.objects : store.objects).find((item) => item.id === redraw.dataset.atlasV2Redraw); if (object) atlasV2Start(store.activeScenario ? 'scenario-object-update' : 'object-update', object); };
+    if (remove) remove.onclick = async () => { if (confirm('Eliminar este objeto?')) { if (store.activeScenario) await store.deleteScenarioObject(remove.dataset.atlasV2Delete); else await store.deleteObject(remove.dataset.atlasV2Delete); } };
+    if (refresh) refresh.onclick = async () => { await store.updateScenarioObjectFromProject(refresh.dataset.atlasV2Refresh); };
+    if (simulate) simulate.onclick = async () => {
+      const result = await store.runEarthwork(simulate.dataset.atlasV2Simulate);
+      const metrics = result.metrics;
+      event.popup.setContent(`<strong>Terraplanagem</strong><br>Área: ${metrics.area_total_m2} m²<br>Corte: ${metrics.volume_corte_m3} m³<br>Aterro: ${metrics.volume_aterro_m3} m³<br>Saldo: ${metrics.saldo_m3} m³`);
+    };
+  });
+  function atlasV2Start(kind, metadata) {
+    atlasV2DrawingActive = true; atlasV2Draft = { kind, metadata, points: [] };
+    document.getElementById('atlas-v2-finish').style.display = 'inline-block';
+    document.getElementById('atlas-v2-message').textContent = 'Clique no mapa para adicionar vértices; depois escolha Concluir.';
+  }
+  async function atlasV2Finish() {
+    if (!atlasV2Draft || atlasV2Draft.points.length < 3) return alert('São necessários pelo menos três vértices.');
+    const draft = atlasV2Draft, geometry = atlasV2Geometry(draft.points);
+    try {
+      if (draft.kind === 'parcel') await window.projectStore.createProject(draft.metadata.name, { geometry, crs:'EPSG:4326', terrain_source_ref:null });
+      else if (draft.kind === 'object-update') {
+        await window.projectStore.updateObject(draft.metadata.id, { type:draft.metadata.type, name:draft.metadata.name, parameters:draft.metadata.parameters, geometry });
+      } else if (draft.kind === 'scenario-object-update') {
+        await window.projectStore.updateScenarioObject(draft.metadata.id, { type:draft.metadata.type, name:draft.metadata.name, parameters:draft.metadata.parameters, geometry });
+      } else {
+        const result = window.projectStore.activeScenario
+          ? await window.projectStore.saveScenarioObject({ ...draft.metadata, geometry })
+          : await window.projectStore.saveObject({ ...draft.metadata, geometry });
+        if (result.warnings.length) alert(result.warnings.join('\n'));
+      }
+      atlasV2DrawingActive = false; atlasV2Draft = null; document.getElementById('atlas-v2-finish').style.display = 'none';
+    } catch (_) { /* ProjectStore exposes the error in the control. */ }
+  }
+  map.on('click', (event) => { if (atlasV2DrawingActive) { atlasV2Draft.points.push([event.latlng.lng, event.latlng.lat]); L.circleMarker(event.latlng, { radius:4, color:'#b5602f' }).addTo(atlasV2Layers); } });
+  document.addEventListener('DOMContentLoaded', () => {
+    const nameInput = document.getElementById('atlas-v2-name'), typeInput = document.getElementById('atlas-v2-type'), parametersInput = document.getElementById('atlas-v2-parameters'), selector = document.getElementById('atlas-v2-selector'), loadButton = document.getElementById('atlas-v2-load');
+    const nameValue = () => nameInput.value.trim();
+    const showChoices = (items, mode) => { selector.innerHTML = items.map((item) => `<option value="${item.id}">${item.name}</option>`).join(''); selector.dataset.mode = mode; selector.style.display = items.length ? 'block' : 'none'; loadButton.style.display = items.length ? 'inline-block' : 'none'; };
+    document.getElementById('atlas-v2-new').onclick = () => { if (!nameValue()) return alert('Indica o nome do projeto.'); atlasV2Start('parcel', { name:nameValue() }); };
+    document.getElementById('atlas-v2-open').onclick = async () => { const projects = await window.projectStore.listProjects(); showChoices(projects, 'project'); };
+    document.getElementById('atlas-v2-scenario').onclick = async () => { if (!window.projectStore.currentProject) return alert('Crie ou abra primeiro um projeto.'); if (!nameValue()) return alert('Indica o nome do cenário.'); await window.projectStore.createScenario(nameValue()); };
+    document.getElementById('atlas-v2-scenario-open').onclick = async () => { if (!window.projectStore.currentProject) return alert('Crie ou abra primeiro um projeto.'); showChoices(await window.projectStore.listScenarios(), 'scenario'); };
+    loadButton.onclick = async () => { if (selector.dataset.mode === 'project') await window.projectStore.openProject(selector.value); if (selector.dataset.mode === 'scenario') await window.projectStore.openScenario(selector.value); };
+    document.getElementById('atlas-v2-scenario-copy').onclick = async () => { if (!nameValue()) return alert('Indica o nome do cenário duplicado.'); await window.projectStore.duplicateScenario(nameValue()); };
+    document.getElementById('atlas-v2-object').onclick = () => { if (!window.projectStore.currentProject) return alert('Crie ou abra primeiro um projeto.'); if (!nameValue()) return alert('Indica o nome do objeto.'); try { atlasV2Start('object', { type:typeInput.value, name:nameValue(), parameters:JSON.parse(parametersInput.value || '{}') }); } catch (_) { alert('Parâmetros JSON inválidos.'); } };
+    document.getElementById('atlas-v2-finish').onclick = atlasV2Finish;
+  });
   const camadaOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 18
@@ -1174,6 +1254,7 @@
   const panel = document.getElementById('panel');
 
   map.on('click', async (e) => {
+    if (atlasV2DrawingActive) return;
     const { lat, lng } = e.latlng;
 
     if (charcaModoAtivo) {

@@ -8,6 +8,8 @@ interativo. Ver README.md para mais detalhes de arquitetura.
 from flask import Flask, request, jsonify, render_template
 import os
 
+from atlas_v2.api import init_app as init_atlas_v2
+
 import motor_juridico
 import motor_solar
 import motor_agricola
@@ -18,6 +20,16 @@ import motor_ambiental
 import motor_agricultura
 
 app = Flask(__name__)
+app.config["ATLAS_V2_DATABASE"] = os.environ.get(
+    "ATLAS_V2_DATABASE", os.path.join(app.instance_path, "atlas_v2.sqlite3")
+)
+app.config["ATLAS_TERRAIN_NORTH"] = os.environ.get(
+    "ATLAS_TERRAIN_NORTH", os.path.join(app.root_path, "data", "MDT-2m-184044-04-2024_v01.tif")
+)
+app.config["ATLAS_TERRAIN_SOUTH"] = os.environ.get(
+    "ATLAS_TERRAIN_SOUTH", os.path.join(app.root_path, "data", "MDT-2m-184043-04-2024_v01.tif")
+)
+init_atlas_v2(app)
 
 
 @app.route("/")
