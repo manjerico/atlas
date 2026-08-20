@@ -9,45 +9,96 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1c2b26;
-    --paper:#f7f4ec;
-    --paper-2:#efe9d8;
-    --map-bg:#e9e5d6;
-    --teal:#2f6f62;
-    --teal-dark:#1f4d43;
-    --clay:#b5602f;
-    --ok:#3d7a4f;
-    --muted:#6b6a5f;
-    --border:#d9d3c2;
+    --ink:#17211d;
+    --paper:#f7f9f7;
+    --paper-2:#eef2ef;
+    --map-bg:#dfe5df;
+    --teal:#1f705b;
+    --teal-dark:#163e34;
+    --clay:#b85f35;
+    --ok:#2f7b52;
+    --muted:#64706a;
+    --border:#dce3de;
+    --panel:#fbfcfb;
+    --shadow:0 18px 45px rgba(18, 43, 34, .18);
     --font-display:'Source Serif 4', Georgia, serif;
     --font-body:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
-  body{font-family:var(--font-body); color:var(--ink); background:var(--paper);}
+  body{font-family:var(--font-body); color:var(--ink); background:var(--paper); overflow:hidden;}
   .app{display:flex; flex-direction:column; height:100vh;}
   header{
-    display:flex; align-items:baseline; gap:14px; padding:14px 22px;
-    background:var(--teal-dark); color:var(--paper);
-    border-bottom:3px solid var(--clay); flex-shrink:0; flex-wrap:wrap;
+    display:flex; align-items:center; gap:14px; min-height:58px; padding:9px 18px;
+    background:#173d34; color:#fff; flex-shrink:0; flex-wrap:wrap;
+    box-shadow:0 1px 0 rgba(255,255,255,.08); z-index:900;
   }
-  header h1{font-family:var(--font-display); font-size:1.35rem; font-weight:700; margin:0; letter-spacing:0.2px;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{width:30px;height:30px;border-radius:9px;background:#fff;color:var(--teal-dark);display:grid;place-items:center;font-family:var(--font-display);font-weight:700;box-shadow:inset 0 0 0 1px rgba(23,61,52,.08);}
+  header h1{font-family:var(--font-display); font-size:1.3rem; font-weight:700; margin:0; letter-spacing:0.1px; line-height:1;}
+  .brand-copy{display:flex;flex-direction:column;gap:2px;}
+  .brand-subtitle{font-size:.66rem;color:#bed1ca;letter-spacing:.04em;}
   header .tag{
-    font-family:var(--font-mono); font-size:0.72rem; color:#d9cfae;
-    border:1px solid #4a7a6e; border-radius:3px; padding:2px 7px;
+    font-family:var(--font-mono); font-size:0.65rem; color:#d8e7e1;
+    border:1px solid #426b60; border-radius:999px; padding:3px 8px;
     text-transform:uppercase; letter-spacing:0.06em;
   }
   header .spacer{flex:1;}
-  main{flex:1; display:flex; min-height:0;}
-  #map{flex:1 1 60%; background:var(--map-bg); min-width:0;}
+  main{flex:1; min-height:0; position:relative; overflow:hidden;}
+  #map{position:absolute; inset:0; background:var(--map-bg);}
   #panel{
-    flex:1 1 40%; max-width:460px; min-width:320px; overflow-y:auto;
-    background:var(--paper); border-left:1px solid var(--border); padding:20px;
+    position:absolute; z-index:700; top:12px; right:12px; bottom:12px; width:min(390px, calc(100vw - 32px));
+    overflow:hidden; background:rgba(251,252,251,.97); border:1px solid rgba(215,224,218,.92);
+    border-radius:18px; box-shadow:var(--shadow); transition:transform .24s ease, opacity .2s ease;
+    backdrop-filter:blur(14px); display:flex; flex-direction:column;
   }
+  body.sidebar-collapsed #panel{transform:translateX(calc(100% + 20px));opacity:0;pointer-events:none;}
+  .workspace-head{display:flex;align-items:flex-start;gap:12px;padding:17px 18px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.82);}
+  .workspace-head-copy{flex:1;min-width:0;}
+  .eyebrow{font-size:.66rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:5px;}
+  .workspace-head h2{font-family:var(--font-display);font-size:1.22rem;line-height:1.15;margin:0;}
+  .workspace-status{font-size:.76rem;color:var(--muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .icon-button{border:1px solid var(--border);background:#fff;color:var(--ink);width:34px;height:34px;border-radius:10px;display:grid;place-items:center;cursor:pointer;font-size:1rem;flex:0 0 auto;}
+  .icon-button:hover{border-color:#aebdb4;background:var(--paper-2);}
+  #sidebar-reopen{position:absolute;z-index:710;right:16px;top:16px;width:auto;padding:0 13px;gap:7px;display:none;box-shadow:0 8px 24px rgba(18,43,34,.2);font-family:var(--font-body);font-weight:600;}
+  body.sidebar-collapsed #sidebar-reopen{display:flex;align-items:center;}
+  .workspace-scroll{overflow-y:auto;overscroll-behavior:contain;padding:14px;scrollbar-width:thin;}
+  .workflow{display:grid;gap:10px;}
+  .workflow-step{background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px;transition:border-color .18s ease,box-shadow .18s ease;}
+  .workflow-step.is-current{border-color:#8bb7a8;box-shadow:0 0 0 3px rgba(31,112,91,.08);}
+  .workflow-step.is-disabled{opacity:.58;}
+  .step-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+  .step-number{width:24px;height:24px;border-radius:8px;background:var(--paper-2);color:var(--teal-dark);display:grid;place-items:center;font-family:var(--font-mono);font-size:.68rem;font-weight:600;}
+  .workflow-step.is-current .step-number{background:var(--teal);color:#fff;}
+  .step-title{font-size:.83rem;font-weight:600;flex:1;}
+  .step-meta{font-size:.7rem;color:var(--muted);}
+  .field{display:grid;gap:5px;margin-top:8px;}
+  .field label{font-size:.68rem;font-weight:600;color:var(--muted);letter-spacing:.02em;}
+  .field input,.field select{width:100%;min-height:36px;border:1px solid #ced8d1;border-radius:9px;padding:7px 9px;background:#fff;color:var(--ink);font:inherit;font-size:.8rem;outline:none;}
+  .field input:focus,.field select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(31,112,91,.11);}
+  .action-row{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;}
+  .button{border:1px solid transparent;border-radius:9px;padding:8px 11px;font:600 .76rem var(--font-body);cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease;}
+  .button:hover{transform:translateY(-1px);}
+  .button-primary{background:var(--teal);color:#fff;}.button-primary:hover{background:#195d4c;}
+  .button-secondary{background:#fff;color:var(--ink);border-color:#ced8d1;}.button-secondary:hover{background:var(--paper-2);}
+  .button-danger{color:#8d342c;}
+  .button:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+  .choice-row{display:none;gap:7px;margin-top:9px;}.choice-row.is-visible{display:flex;}.choice-row select{min-width:0;flex:1;}
+  .advanced-parameters{border-top:0;margin-top:9px;padding-top:0;}.advanced-parameters summary{font-size:.72rem;color:var(--muted);}
+  .workspace-message{display:none;margin:10px 0 0;padding:9px 10px;border-radius:9px;background:#fff4f0;color:#82372d;font-size:.75rem;line-height:1.4;}
+  .workspace-message.is-visible{display:block;}.workspace-message[data-kind="info"]{background:#edf6f2;color:#245b4d;}
+  .object-summary{display:grid;gap:6px;margin-top:8px;}
+  .object-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px;background:var(--paper-2);font-size:.74rem;}
+  .object-row-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.object-row-type{color:var(--muted);font-size:.66rem;}
+  .empty-state{font-size:.74rem;color:var(--muted);line-height:1.45;padding:4px 0;}
+  .legacy-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .section-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:0 2px 10px;}
+  .section-heading h3{font-family:var(--font-display);font-size:1rem;margin:0;}.section-heading span{font-size:.67rem;color:var(--muted);}
+  #analysis-content{padding-bottom:3px;}
   .hint{
     font-family:var(--font-body); color:var(--muted); font-size:0.92rem; line-height:1.55;
-    padding:18px; border:1px dashed var(--border); border-radius:6px; background:var(--paper-2);
+    padding:15px; border:1px dashed #cbd7cf; border-radius:12px; background:var(--paper-2);
   }
   .hint strong{color:var(--ink);}
   .dossier-header{
@@ -56,7 +107,7 @@
     border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:16px;
   }
   .dossier-header .ref{color:var(--ink); font-weight:500;}
-  .engine-card{border:1px solid var(--border); border-radius:8px; margin-bottom:16px; background:#fff; overflow:hidden;}
+  .engine-card{border:1px solid var(--border); border-radius:12px; margin-bottom:12px; background:#fff; overflow:hidden;}
   .engine-card.locked{background:var(--paper-2); opacity:0.72;}
   .engine-card .card-head{
     display:flex; align-items:center; gap:10px; padding:12px 14px;
@@ -101,11 +152,14 @@
 
   .charca-btn{
     font-family:var(--font-body); font-size:0.8rem; font-weight:600;
-    background:var(--teal); color:#fff; border:none; border-radius:5px;
-    padding:8px 12px; cursor:pointer;
+    background:#fff; color:var(--teal-dark); border:1px solid rgba(31,112,91,.25); border-radius:9px;
+    padding:8px 11px; cursor:pointer; box-shadow:0 3px 12px rgba(18,43,34,.08);
   }
-  .charca-btn:hover{background:var(--teal-dark);}
-  .charca-btn.ativo{background:var(--clay);}
+  .charca-btn:hover{background:#edf6f2;}
+  .charca-btn.ativo{background:var(--clay);color:#fff;border-color:var(--clay);}
+  .map-legend{display:flex;gap:6px;flex-wrap:wrap;max-width:440px;}
+  .map-popup-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;}
+  .map-popup-actions button{border:1px solid #cdd8d1;background:#fff;color:var(--teal-dark);border-radius:7px;padding:5px 7px;cursor:pointer;font:600 .7rem var(--font-body);}
 
   #busca-parcela{ display:flex; gap:6px; align-items:center; font-size:0.8rem; }
   #busca-parcela select{
@@ -141,13 +195,37 @@
   #modal-3d-topbar span:first-child{font-weight:600;}
   #info-3d{flex:1; color:#cfe3dc;}
   #canvas-3d-container{flex:1; position:relative;}
+
+  @media (max-width: 1080px){
+    header{gap:9px;padding:8px 12px;}
+    .brand-subtitle,.tag{display:none;}
+    #legenda-ran-ren{order:3;width:100%;border-left:0;padding-left:0;display:none;}
+    #busca-freguesia{width:145px;}#busca-seccao{width:72px;}#busca-predio{width:78px;}
+  }
+  @media (max-width: 720px){
+    header{min-height:52px;flex-wrap:nowrap;}
+    header .spacer,#legenda-ran-ren,#busca-resultado{display:none;}
+    #busca-parcela{margin-left:auto;}.brand-mark{width:28px;height:28px}.brand-copy h1{font-size:1.15rem;}
+    #busca-freguesia,#busca-seccao{display:none;}#busca-predio{width:88px;}
+    #busca-parcela #btn-buscar-parcela{font-size:0;width:34px;height:32px;padding:0;}#btn-buscar-parcela::after{content:'⌕';font-size:1rem;}
+    #panel{top:8px;right:8px;bottom:8px;width:min(94vw,390px);border-radius:15px;}
+    .workspace-head{padding:14px;}.workspace-scroll{padding:11px;}
+    .leaflet-control-layers-expanded{max-width:190px;font-size:.72rem;}
+    .map-legend{max-width:calc(100vw - 32px);}.map-legend .charca-btn{font-size:.7rem;padding:7px 8px;}
+  }
 </style>
 </head>
 <body>
 <div class="app">
   <header>
-    <h1>Atlas</h1>
-    <span class="tag">protótipo · Silves</span>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">A</div>
+      <div class="brand-copy">
+        <h1>Atlas</h1>
+        <span class="brand-subtitle">Planeamento territorial</span>
+      </div>
+    </div>
+    <span class="tag">Silves · V2</span>
     <span class="spacer"></span>
     <div id="legenda-ran-ren">
       <label><input type="checkbox" id="toggle-ran-ren"> RAN/REN</label>
@@ -164,14 +242,63 @@
   </header>
   <main>
     <div id="map"></div>
-    <div id="panel">
-      <div class="hint">
-        <strong>Como funciona:</strong> dá zoom até veres os limites das parcelas
-        e clica dentro de uma. O Atlas consulta agora o <strong>backend próprio</strong>
-        e devolve a análise dos motores <strong>Jurídico</strong>, <strong>Energético</strong>,
-        <strong>Agronómico</strong>, <strong>Hídrico</strong> e <strong>Ambiental</strong>.
+    <button id="sidebar-reopen" class="icon-button" type="button" aria-controls="panel" aria-expanded="false"><span aria-hidden="true">☰</span> Workspace</button>
+    <aside id="panel" aria-label="Workspace Atlas">
+      <div class="workspace-head">
+        <div class="workspace-head-copy">
+          <div class="eyebrow">Workspace</div>
+          <h2>Planeamento do projeto</h2>
+          <div id="atlas-v2-status" class="workspace-status">Sem projeto aberto</div>
+        </div>
+        <button id="sidebar-collapse" class="icon-button" type="button" aria-label="Recolher painel" aria-controls="panel" aria-expanded="true">›</button>
       </div>
-    </div>
+      <div class="workspace-scroll">
+        <div class="workflow">
+          <section id="atlas-step-project" class="workflow-step is-current">
+            <div class="step-head"><span class="step-number">01</span><span class="step-title">Projeto</span><span id="atlas-project-meta" class="step-meta">Base territorial</span></div>
+            <div class="field"><label for="atlas-v2-project-name">Nome do projeto</label><input id="atlas-v2-project-name" placeholder="Ex.: Quinta da Ribeira" autocomplete="off"></div>
+            <div class="action-row">
+              <button id="atlas-v2-new" class="button button-primary" type="button">Desenhar novo</button>
+              <button id="atlas-v2-open" class="button button-secondary" type="button">Abrir existente</button>
+            </div>
+            <div id="atlas-v2-project-choice" class="choice-row"><select id="atlas-v2-project-selector" aria-label="Projetos disponíveis"></select><button id="atlas-v2-project-load" class="button button-primary" type="button">Abrir</button></div>
+          </section>
+
+          <section id="atlas-step-scenario" class="workflow-step is-disabled">
+            <div class="step-head"><span class="step-number">02</span><span class="step-title">Cenário</span><span id="atlas-scenario-meta" class="step-meta">Escolha uma hipótese</span></div>
+            <div class="field"><label for="atlas-v2-scenario-name">Nome do cenário</label><input id="atlas-v2-scenario-name" placeholder="Ex.: Implantação A" autocomplete="off"></div>
+            <div class="action-row">
+              <button id="atlas-v2-scenario" class="button button-primary" type="button">Criar cenário</button>
+              <button id="atlas-v2-scenario-open" class="button button-secondary" type="button">Abrir</button>
+              <button id="atlas-v2-scenario-copy" class="button button-secondary" type="button">Duplicar</button>
+            </div>
+            <div id="atlas-v2-scenario-choice" class="choice-row"><select id="atlas-v2-scenario-selector" aria-label="Cenários disponíveis"></select><button id="atlas-v2-scenario-load" class="button button-primary" type="button">Abrir</button></div>
+          </section>
+
+          <section id="atlas-step-objects" class="workflow-step is-disabled">
+            <div class="step-head"><span class="step-number">03</span><span class="step-title">Objetos</span><span id="atlas-object-meta" class="step-meta">0 no mapa</span></div>
+            <div class="field"><label for="atlas-v2-object-name">Nome do objeto</label><input id="atlas-v2-object-name" placeholder="Ex.: Plataforma principal" autocomplete="off"></div>
+            <div class="field"><label for="atlas-v2-type">Tipo</label><select id="atlas-v2-type"><option value="zone">Zona</option><option value="platform">Plataforma</option><option value="pond">Charca</option><option value="access">Acesso</option><option value="crop_area">Área agrícola</option></select></div>
+            <details class="advanced-parameters"><summary>Parâmetros avançados</summary><div class="field"><label for="atlas-v2-parameters">JSON</label><input id="atlas-v2-parameters" value="{}" spellcheck="false"></div></details>
+            <div class="action-row"><button id="atlas-v2-object" class="button button-primary" type="button">Desenhar objeto</button><button id="atlas-v2-finish" class="button button-primary" type="button" style="display:none;">Concluir desenho</button></div>
+            <div id="atlas-v2-object-list" class="object-summary"><div class="empty-state">Os objetos do projeto surgem aqui e no mapa.</div></div>
+          </section>
+
+          <section id="atlas-step-results" class="workflow-step is-disabled">
+            <div class="step-head"><span class="step-number">04</span><span class="step-title">Análises e resultados</span><span id="atlas-results-meta" class="step-meta">Sem resultados</span></div>
+            <div id="atlas-results-summary" class="empty-state">Abra um cenário e selecione um objeto no mapa para executar as análises disponíveis.</div>
+          </section>
+        </div>
+        <div id="atlas-v2-message" class="workspace-message" role="status" aria-live="polite"></div>
+
+        <section class="legacy-section">
+          <div class="section-heading"><h3>Consulta rápida</h3><span>Fluxo V1 preservado</span></div>
+          <div id="analysis-content">
+            <div class="hint"><strong>Análise por localização</strong><br>Clica numa parcela ou num ponto do mapa para consultar os motores Jurídico, Energético, Agronómico, Hídrico e Ambiental.</div>
+          </div>
+        </section>
+      </div>
+    </aside>
   </main>
   <div id="modal-3d">
     <div id="modal-3d-topbar">
@@ -202,51 +329,86 @@
   let atlasV2DrawingActive = false;
   let atlasV2Draft = null;
   const atlasV2Layers = L.featureGroup().addTo(map);
-  const AtlasWorkspaceControl = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd() {
-      const box = L.DomUtil.create('div', 'leaflet-bar');
-      box.style.cssText = 'background:#f7f4ec;padding:8px;width:220px;border-radius:4px;font:12px IBM Plex Sans,sans-serif;';
-      box.innerHTML = '<strong>Workspace V2</strong><div id="atlas-v2-status" style="margin:5px 0;color:#6b6a5f;">Sem projeto aberto</div><input id="atlas-v2-name" placeholder="Nome" style="width:100%;margin:2px 0;"><select id="atlas-v2-type" style="width:100%;margin:2px 0;"><option value="zone">Zona</option><option value="platform">Plataforma</option><option value="pond">Charca</option><option value="access">Acesso</option><option value="crop_area">Área agrícola</option></select><input id="atlas-v2-parameters" value="{}" aria-label="Parâmetros JSON" style="width:100%;margin:2px 0;"><select id="atlas-v2-selector" style="width:100%;margin:2px 0;display:none;"></select><button id="atlas-v2-new" class="charca-btn">Novo projeto</button> <button id="atlas-v2-open" class="charca-btn">Listar projetos</button><br><button id="atlas-v2-scenario" class="charca-btn" style="margin-top:4px;">Novo cenário</button> <button id="atlas-v2-scenario-open" class="charca-btn" style="margin-top:4px;">Listar cenários</button><br><button id="atlas-v2-load" class="charca-btn" style="margin-top:4px;display:none;">Carregar seleção</button> <button id="atlas-v2-scenario-copy" class="charca-btn" style="margin-top:4px;">Duplicar</button><br><button id="atlas-v2-object" class="charca-btn" style="margin-top:4px;">Desenhar objeto</button> <button id="atlas-v2-finish" class="charca-btn" style="display:none;margin-top:4px;">Concluir</button><div id="atlas-v2-message" style="margin-top:5px;color:#7a2c1f;"></div>';
-      L.DomEvent.disableClickPropagation(box); return box;
-    },
-  });
-  map.addControl(new AtlasWorkspaceControl());
   const atlasV2Geometry = (points) => ({ type: 'Polygon', coordinates: [[...points, points[0]]] });
+  const atlasV2Escape = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
+  function atlasV2SetMessage(text, kind = 'error') {
+    const message = document.getElementById('atlas-v2-message');
+    message.textContent = text || '';
+    message.dataset.kind = kind;
+    message.classList.toggle('is-visible', Boolean(text));
+  }
+  function atlasV2ApplySidebarState(collapsed) {
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    document.getElementById('sidebar-collapse').setAttribute('aria-expanded', String(!collapsed));
+    document.getElementById('sidebar-reopen').setAttribute('aria-expanded', String(!collapsed));
+    window.setTimeout(() => map.invalidateSize({ animate: false }), 260);
+  }
   function atlasV2Render() {
-    const store = window.projectStore, status = document.getElementById('atlas-v2-status'), message = document.getElementById('atlas-v2-message');
+    const store = window.projectStore, status = document.getElementById('atlas-v2-status');
     atlasV2Layers.clearLayers();
-    status.textContent = store.currentProject ? `Projeto: ${store.currentProject.name}${store.activeScenario ? ` · Cenário: ${store.activeScenario.name}` : ''}` : 'Sem projeto aberto';
-    message.textContent = store.lastError || '';
+    atlasV2ApplySidebarState(Boolean(store.uiState.sidebarCollapsed));
+    status.textContent = store.currentProject ? `${store.currentProject.name}${store.activeScenario ? ` · ${store.activeScenario.name}` : ' · sem cenário ativo'}` : 'Sem projeto aberto';
+    if (store.lastError) atlasV2SetMessage(store.lastError);
+    const projectReady = Boolean(store.currentProject), scenarioReady = Boolean(store.activeScenario);
+    const objects = scenarioReady ? store.activeScenario.objects : store.objects;
+    document.getElementById('atlas-step-project').classList.toggle('is-current', !projectReady);
+    document.getElementById('atlas-step-scenario').classList.toggle('is-disabled', !projectReady);
+    document.getElementById('atlas-step-scenario').classList.toggle('is-current', projectReady && !scenarioReady);
+    document.getElementById('atlas-step-objects').classList.toggle('is-disabled', !projectReady);
+    document.getElementById('atlas-step-objects').classList.toggle('is-current', projectReady && objects.length === 0);
+    document.getElementById('atlas-step-results').classList.toggle('is-disabled', !scenarioReady);
+    document.getElementById('atlas-step-results').classList.toggle('is-current', scenarioReady && objects.length > 0);
+    ['atlas-v2-scenario', 'atlas-v2-scenario-open', 'atlas-v2-object'].forEach((id) => { document.getElementById(id).disabled = !projectReady; });
+    document.getElementById('atlas-v2-scenario-copy').disabled = !scenarioReady;
+    document.getElementById('atlas-project-meta').textContent = projectReady ? 'Base definida' : 'Base territorial';
+    document.getElementById('atlas-scenario-meta').textContent = scenarioReady ? store.activeScenario.name : 'Escolha uma hipótese';
+    document.getElementById('atlas-object-meta').textContent = `${objects.length} ${objects.length === 1 ? 'objeto' : 'objetos'}`;
+    const resultCount = Object.values(store.simulationResults).reduce((total, results) => total + Object.keys(results).length, 0);
+    document.getElementById('atlas-results-meta').textContent = resultCount ? `${resultCount} ${resultCount === 1 ? 'resultado' : 'resultados'}` : 'Sem resultados';
+    document.getElementById('atlas-results-summary').textContent = scenarioReady
+      ? (objects.length ? 'Seleciona um objeto no mapa para consultar ou atualizar as análises disponíveis.' : 'Adiciona um objeto a este cenário para iniciar as análises.')
+      : 'Abre um cenário para executar análises e guardar os resultados.';
+    document.getElementById('atlas-v2-object-list').innerHTML = objects.length
+      ? objects.map((object) => {
+          const count = Object.keys(store.simulationResults[object.id] || {}).length;
+          return `<div class="object-row"><span class="object-row-name">${atlasV2Escape(object.name)}</span><span class="object-row-type">${atlasV2Escape(object.type)}${count ? ` · ${count} análise${count === 1 ? '' : 's'}` : ''}</span></div>`;
+        }).join('')
+      : '<div class="empty-state">Os objetos do projeto surgem aqui e no mapa.</div>';
     if (store.baseParcel) L.geoJSON(store.baseParcel.geometry, { style: { color:'#b5602f', weight:2, fillOpacity:.04, dashArray:'5 4' } }).addTo(atlasV2Layers);
-    const activeScenario = store.activeScenario, objects = activeScenario ? activeScenario.objects : store.objects;
+    const activeScenario = store.activeScenario;
     objects.forEach((object) => {
-      const simulate = activeScenario && object.type === 'platform' ? `<button data-atlas-v2-simulate="${object.id}">Simular</button> ` : '';
+      const engines = object.type === 'platform' ? [['earthwork', 'Simular terraplanagem']] : object.type === 'crop_area' ? [['cultivable_area', 'Analisar cultivo']] : object.type === 'zone' ? [['solar_potential', 'Analisar solar'], ['water_context', 'Analisar água']] : [];
+      const simulate = activeScenario ? engines.map(([engineType, label]) => `<button data-atlas-v2-simulate="${object.id}" data-atlas-v2-engine="${engineType}">${label}</button> `).join('') : '';
       const refresh = activeScenario && object.original_object_id ? `<button data-atlas-v2-refresh="${object.id}">Atualizar</button> ` : '';
       const remove = `<button data-atlas-v2-delete="${object.id}">Eliminar</button>`;
-      L.geoJSON(object.geometry, { style: { color:'#2f6f62', weight:3, fillOpacity:.12 } }).bindPopup(`<strong>${object.name}</strong><br>${object.type}<br>${simulate}${refresh}<button data-atlas-v2-redraw="${object.id}">Redesenhar</button> ${remove}`).addTo(atlasV2Layers);
+      L.geoJSON(object.geometry, { style: { color:'#2f6f62', weight:3, fillOpacity:.12 } }).bindPopup(`<strong>${atlasV2Escape(object.name)}</strong><br><span style="color:#64706a">${atlasV2Escape(object.type)}</span><div class="map-popup-actions">${simulate}${refresh}<button data-atlas-v2-redraw="${object.id}">Redesenhar</button>${remove}</div>`).addTo(atlasV2Layers);
     });
   }
   window.projectStore.subscribe(atlasV2Render);
   map.on('popupopen', (event) => {
     const root = event.popup.getElement(), store = window.projectStore;
-    const redraw = root.querySelector('[data-atlas-v2-redraw]'), remove = root.querySelector('[data-atlas-v2-delete]'), simulate = root.querySelector('[data-atlas-v2-simulate]'), refresh = root.querySelector('[data-atlas-v2-refresh]');
+    const redraw = root.querySelector('[data-atlas-v2-redraw]'), remove = root.querySelector('[data-atlas-v2-delete]'), simulations = root.querySelectorAll('[data-atlas-v2-simulate]'), refresh = root.querySelector('[data-atlas-v2-refresh]');
     if (redraw) redraw.onclick = () => { const object = (store.activeScenario ? store.activeScenario.objects : store.objects).find((item) => item.id === redraw.dataset.atlasV2Redraw); if (object) atlasV2Start(store.activeScenario ? 'scenario-object-update' : 'object-update', object); };
     if (remove) remove.onclick = async () => { if (confirm('Eliminar este objeto?')) { if (store.activeScenario) await store.deleteScenarioObject(remove.dataset.atlasV2Delete); else await store.deleteObject(remove.dataset.atlasV2Delete); } };
     if (refresh) refresh.onclick = async () => { await store.updateScenarioObjectFromProject(refresh.dataset.atlasV2Refresh); };
-    if (simulate) simulate.onclick = async () => {
-      const result = await store.runEarthwork(simulate.dataset.atlasV2Simulate);
-      const metrics = result.metrics;
-      event.popup.setContent(`<strong>Terraplanagem</strong><br>Área: ${metrics.area_total_m2} m²<br>Corte: ${metrics.volume_corte_m3} m³<br>Aterro: ${metrics.volume_aterro_m3} m³<br>Saldo: ${metrics.saldo_m3} m³`);
-    };
+    simulations.forEach((simulate) => { simulate.onclick = async () => {
+        const engineType = simulate.dataset.atlasV2Engine;
+        const result = await store.runSimulation(simulate.dataset.atlasV2Simulate, engineType);
+        const metrics = result.metrics;
+        if (engineType === 'earthwork') event.popup.setContent(`<strong>Terraplanagem</strong><br>Área: ${metrics.area_total_m2} m²<br>Corte: ${metrics.volume_corte_m3} m³<br>Aterro: ${metrics.volume_aterro_m3} m³<br>Saldo: ${metrics.saldo_m3} m³`);
+        else if (engineType === 'cultivable_area') event.popup.setContent(`<strong>Área cultivável</strong><br>Área total: ${metrics.area_total_ha} ha<br>Cultivável: ${metrics.area_cultivavel_ha} ha<br>Percentagem: ${metrics.percentagem_cultivavel}%`);
+        else if (engineType === 'solar_potential') event.popup.setContent(`<strong>Potencial solar</strong><br>${metrics.potential}<br>Produção específica: ${metrics.specific_yield_kwh_kwp_year} kWh/kWp/ano`);
+        else event.popup.setContent(`<strong>Contexto hídrico</strong><br>Precipitação média: ${metrics.annual_precipitation_mm ?? 'n/d'} mm/ano<br>Pontos de água no raio: ${metrics.water_points_nearby}`);
+      };
+    });
   });
   function atlasV2Start(kind, metadata) {
     atlasV2DrawingActive = true; atlasV2Draft = { kind, metadata, points: [] };
     document.getElementById('atlas-v2-finish').style.display = 'inline-block';
-    document.getElementById('atlas-v2-message').textContent = 'Clique no mapa para adicionar vértices; depois escolha Concluir.';
+    atlasV2SetMessage('Clica no mapa para adicionar vértices e depois escolhe “Concluir desenho”.', 'info');
   }
   async function atlasV2Finish() {
-    if (!atlasV2Draft || atlasV2Draft.points.length < 3) return alert('São necessários pelo menos três vértices.');
+    if (!atlasV2Draft || atlasV2Draft.points.length < 3) return atlasV2SetMessage('São necessários pelo menos três vértices para concluir o desenho.');
     const draft = atlasV2Draft, geometry = atlasV2Geometry(draft.points);
     try {
       if (draft.kind === 'parcel') await window.projectStore.createProject(draft.metadata.name, { geometry, crs:'EPSG:4326', terrain_source_ref:null });
@@ -258,24 +420,34 @@
         const result = window.projectStore.activeScenario
           ? await window.projectStore.saveScenarioObject({ ...draft.metadata, geometry })
           : await window.projectStore.saveObject({ ...draft.metadata, geometry });
-        if (result.warnings.length) alert(result.warnings.join('\n'));
+        if (result.warnings.length) atlasV2SetMessage(result.warnings.join(' '), 'info');
       }
       atlasV2DrawingActive = false; atlasV2Draft = null; document.getElementById('atlas-v2-finish').style.display = 'none';
     } catch (_) { /* ProjectStore exposes the error in the control. */ }
   }
   map.on('click', (event) => { if (atlasV2DrawingActive) { atlasV2Draft.points.push([event.latlng.lng, event.latlng.lat]); L.circleMarker(event.latlng, { radius:4, color:'#b5602f' }).addTo(atlasV2Layers); } });
   document.addEventListener('DOMContentLoaded', () => {
-    const nameInput = document.getElementById('atlas-v2-name'), typeInput = document.getElementById('atlas-v2-type'), parametersInput = document.getElementById('atlas-v2-parameters'), selector = document.getElementById('atlas-v2-selector'), loadButton = document.getElementById('atlas-v2-load');
-    const nameValue = () => nameInput.value.trim();
-    const showChoices = (items, mode) => { selector.innerHTML = items.map((item) => `<option value="${item.id}">${item.name}</option>`).join(''); selector.dataset.mode = mode; selector.style.display = items.length ? 'block' : 'none'; loadButton.style.display = items.length ? 'inline-block' : 'none'; };
-    document.getElementById('atlas-v2-new').onclick = () => { if (!nameValue()) return alert('Indica o nome do projeto.'); atlasV2Start('parcel', { name:nameValue() }); };
-    document.getElementById('atlas-v2-open').onclick = async () => { const projects = await window.projectStore.listProjects(); showChoices(projects, 'project'); };
-    document.getElementById('atlas-v2-scenario').onclick = async () => { if (!window.projectStore.currentProject) return alert('Crie ou abra primeiro um projeto.'); if (!nameValue()) return alert('Indica o nome do cenário.'); await window.projectStore.createScenario(nameValue()); };
-    document.getElementById('atlas-v2-scenario-open').onclick = async () => { if (!window.projectStore.currentProject) return alert('Crie ou abra primeiro um projeto.'); showChoices(await window.projectStore.listScenarios(), 'scenario'); };
-    loadButton.onclick = async () => { if (selector.dataset.mode === 'project') await window.projectStore.openProject(selector.value); if (selector.dataset.mode === 'scenario') await window.projectStore.openScenario(selector.value); };
-    document.getElementById('atlas-v2-scenario-copy').onclick = async () => { if (!nameValue()) return alert('Indica o nome do cenário duplicado.'); await window.projectStore.duplicateScenario(nameValue()); };
-    document.getElementById('atlas-v2-object').onclick = () => { if (!window.projectStore.currentProject) return alert('Crie ou abra primeiro um projeto.'); if (!nameValue()) return alert('Indica o nome do objeto.'); try { atlasV2Start('object', { type:typeInput.value, name:nameValue(), parameters:JSON.parse(parametersInput.value || '{}') }); } catch (_) { alert('Parâmetros JSON inválidos.'); } };
+    const store = window.projectStore;
+    const projectName = document.getElementById('atlas-v2-project-name'), scenarioName = document.getElementById('atlas-v2-scenario-name'), objectName = document.getElementById('atlas-v2-object-name');
+    const typeInput = document.getElementById('atlas-v2-type'), parametersInput = document.getElementById('atlas-v2-parameters');
+    const projectSelector = document.getElementById('atlas-v2-project-selector'), scenarioSelector = document.getElementById('atlas-v2-scenario-selector');
+    const showChoices = (items, selector, row) => {
+      selector.innerHTML = items.map((item) => `<option value="${item.id}">${atlasV2Escape(item.name)}</option>`).join('');
+      row.classList.toggle('is-visible', items.length > 0);
+      if (!items.length) atlasV2SetMessage('Não existem opções disponíveis.', 'info');
+    };
+    document.getElementById('sidebar-collapse').onclick = () => store.setUiState({ sidebarCollapsed: true });
+    document.getElementById('sidebar-reopen').onclick = () => store.setUiState({ sidebarCollapsed: false });
+    document.getElementById('atlas-v2-new').onclick = () => { const name = projectName.value.trim(); if (!name) return atlasV2SetMessage('Indica o nome do projeto.'); atlasV2Start('parcel', { name }); };
+    document.getElementById('atlas-v2-open').onclick = async () => { try { showChoices(await store.listProjects(), projectSelector, document.getElementById('atlas-v2-project-choice')); } catch (error) { atlasV2SetMessage(error.message); } };
+    document.getElementById('atlas-v2-project-load').onclick = async () => { if (projectSelector.value) await store.openProject(projectSelector.value); };
+    document.getElementById('atlas-v2-scenario').onclick = async () => { const name = scenarioName.value.trim(); if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); if (!name) return atlasV2SetMessage('Indica o nome do cenário.'); await store.createScenario(name); };
+    document.getElementById('atlas-v2-scenario-open').onclick = async () => { if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); showChoices(await store.listScenarios(), scenarioSelector, document.getElementById('atlas-v2-scenario-choice')); };
+    document.getElementById('atlas-v2-scenario-load').onclick = async () => { if (scenarioSelector.value) await store.openScenario(scenarioSelector.value); };
+    document.getElementById('atlas-v2-scenario-copy').onclick = async () => { const name = scenarioName.value.trim(); if (!name) return atlasV2SetMessage('Indica o nome do cenário duplicado.'); await store.duplicateScenario(name); };
+    document.getElementById('atlas-v2-object').onclick = () => { const name = objectName.value.trim(); if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); if (!name) return atlasV2SetMessage('Indica o nome do objeto.'); try { atlasV2Start('object', { type:typeInput.value, name, parameters:JSON.parse(parametersInput.value || '{}') }); } catch (_) { atlasV2SetMessage('Os parâmetros avançados não contêm JSON válido.'); } };
     document.getElementById('atlas-v2-finish').onclick = atlasV2Finish;
+    atlasV2Render();
   });
   const camadaOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
@@ -445,10 +617,10 @@
     onAdd: function () {
       const div = L.DomUtil.create('div', 'map-legend');
       div.innerHTML = `
-        <button id="btn-charca" class="charca-btn">💧 Calcular charca (manual)</button>
-        <button id="btn-terraplanagem" class="charca-btn" style="margin-top:6px;">⛏️ Calcular terraplanagem</button>
-        <button id="btn-agricultura" class="charca-btn" style="margin-top:6px;">🌾 Planeamento Agrícola</button>
-        <button id="btn-ver-3d" class="charca-btn" style="margin-top:6px;">🗻 Ver em 3D</button>
+        <button id="btn-charca" class="charca-btn" title="Calcular charca no fluxo V1">💧 Charca manual</button>
+        <button id="btn-terraplanagem" class="charca-btn" title="Calcular terraplanagem no fluxo V1">⛏️ Terraplanagem</button>
+        <button id="btn-agricultura" class="charca-btn" title="Abrir planeamento agrícola V1">🌾 Agricultura</button>
+        <button id="btn-ver-3d" class="charca-btn" title="Abrir vista tridimensional">🗻 Vista 3D</button>
       `;
       L.DomEvent.disableClickPropagation(div);
       return div;
@@ -465,12 +637,12 @@
 
   document.getElementById('btn-charca').addEventListener('click', () => {
     terraplanagemModoAtivo = false;
-    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
+    document.getElementById('btn-terraplanagem').textContent = '⛏️ Terraplanagem';
     document.getElementById('btn-terraplanagem').classList.remove('ativo');
     limparTerraplanagem();
 
     agriculturaModoAtivo = false;
-    document.getElementById('btn-agricultura').textContent = '🌾 Planeamento Agrícola';
+    document.getElementById('btn-agricultura').textContent = '🌾 Agricultura';
     document.getElementById('btn-agricultura').classList.remove('ativo');
     limparAgricultura();
 
@@ -483,7 +655,7 @@
       if (marker) { map.removeLayer(marker); marker = null; }
       renderCharcaInstrucoes();
     } else {
-      btn.textContent = '💧 Calcular charca (manual)';
+      btn.textContent = '💧 Charca manual';
       btn.classList.remove('ativo');
       panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
     }
@@ -491,12 +663,12 @@
 
   document.getElementById('btn-terraplanagem').addEventListener('click', () => {
     charcaModoAtivo = false;
-    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
+    document.getElementById('btn-charca').textContent = '💧 Charca manual';
     document.getElementById('btn-charca').classList.remove('ativo');
     limparCharca();
 
     agriculturaModoAtivo = false;
-    document.getElementById('btn-agricultura').textContent = '🌾 Planeamento Agrícola';
+    document.getElementById('btn-agricultura').textContent = '🌾 Agricultura';
     document.getElementById('btn-agricultura').classList.remove('ativo');
     limparAgricultura();
 
@@ -509,7 +681,7 @@
       if (marker) { map.removeLayer(marker); marker = null; }
       renderTerraplanagemInstrucoes();
     } else {
-      btn.textContent = '⛏️ Calcular terraplanagem';
+      btn.textContent = '⛏️ Terraplanagem';
       btn.classList.remove('ativo');
       panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
     }
@@ -517,12 +689,12 @@
 
   document.getElementById('btn-agricultura').addEventListener('click', () => {
     charcaModoAtivo = false;
-    document.getElementById('btn-charca').textContent = '💧 Calcular charca (manual)';
+    document.getElementById('btn-charca').textContent = '💧 Charca manual';
     document.getElementById('btn-charca').classList.remove('ativo');
     limparCharca();
 
     terraplanagemModoAtivo = false;
-    document.getElementById('btn-terraplanagem').textContent = '⛏️ Calcular terraplanagem';
+    document.getElementById('btn-terraplanagem').textContent = '⛏️ Terraplanagem';
     document.getElementById('btn-terraplanagem').classList.remove('ativo');
     limparTerraplanagem();
 
@@ -535,7 +707,7 @@
       if (marker) { map.removeLayer(marker); marker = null; }
       renderAgriculturaInstrucoes();
     } else {
-      btn.textContent = '🌾 Planeamento Agrícola';
+      btn.textContent = '🌾 Agricultura';
       btn.classList.remove('ativo');
       panel.innerHTML = `<div class="hint">Clica no mapa para voltar a analisar uma parcela.</div>`;
     }
@@ -1251,7 +1423,7 @@
   document.getElementById('btn-ver-3d').addEventListener('click', abrirVista3D);
 
   let marker = null;
-  const panel = document.getElementById('panel');
+  const panel = document.getElementById('analysis-content');
 
   map.on('click', async (e) => {
     if (atlasV2DrawingActive) return;
@@ -1269,6 +1441,7 @@
       handleCliqueAgricultura(lat, lng);
       return;
     }
+    window.projectStore.setUiState({ sidebarCollapsed: false });
     if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lng]).addTo(map);
 
