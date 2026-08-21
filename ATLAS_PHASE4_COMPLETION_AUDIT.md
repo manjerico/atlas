@@ -2,7 +2,7 @@
 
 **Data:** 2026-08-21  
 **Fase:** 4 — Engine Expansion  
-**Estado:** FUNCIONALMENTE CONCLUÍDA / FECHO DE RELEASE PENDENTE  
+**Estado:** CONCLUÍDA  
 **Especificação de referência:** `ATLAS_V2_ARCHITECTURE.md`
 
 ## 1. Objetivo
@@ -24,9 +24,7 @@ A Phase 4 está funcionalmente concluída para o âmbito factual atualmente supo
 - o frontend V2 continua a usar exclusivamente o `ProjectStore` como fronteira com o backend;
 - a versão publicada no Render corresponde ao frontend local auditado.
 
-Não foram encontrados bloqueadores críticos.
-
-O fecho administrativo da release permanece pendente porque o worktree local ainda contém as alterações da Phase 4 sem commit e não está sincronizado com o estado publicado manualmente.
+Não foram encontrados bloqueadores críticos. O estado local foi comparado com a publicação manual por identificador de conteúdo, o histórico foi sincronizado e a release recebeu um commit final auditado.
 
 ## 3. Matriz de motores
 
@@ -173,17 +171,21 @@ Não foram criados projetos, cenários ou resultados no Render durante esta audi
 - undo/redo continua diferido;
 - `pond` e drainage permanecem sem adapter pelas razões factuais documentadas.
 
-## 13. Ações necessárias para fecho total
+## 13. Fecho da release
 
-1. Sincronizar o repositório local com o estado publicado.
-2. Criar um commit único para Phase 4 + correções UX, após revisão final do diff.
-3. Confirmar o commit efetivamente usado pelo Render.
-4. Opcionalmente executar um smoke test de escrita no Render com um projeto QA explicitamente autorizado e removê-lo depois.
+Concluído:
+
+1. repositório local sincronizado com o estado publicado;
+2. commit final criado para Phase 4 + correções UX, após revisão do diff;
+3. versão servida pelo Render comparada com o conteúdo do commit publicado.
+
+Permanece opcional um smoke test de escrita no Render com um projeto QA explicitamente autorizado e removido depois. Esta verificação não bloqueia o fecho da fase porque a suite local já cobre os fluxos persistentes e a auditoria pública foi deliberadamente read-only.
 
 ## 14. Conclusão
 
 **Veredito:** PASS, sem bloqueadores funcionais.
 
-A expansão de motores está integrada de forma coerente com a arquitetura V2 e o bug `Motor não suportado` foi eliminado na origem. A Phase 4 pode ser declarada tecnicamente concluída.
+A expansão de motores está integrada de forma coerente com a arquitetura V2 e o bug `Motor não suportado` foi eliminado na origem. A Phase 4 e o respetivo fecho de release ficam declarados concluídos.
 
-O encerramento definitivo da release depende apenas da sincronização e versionamento do código auditado. Depois desse fecho, a arquitetura não define uma Phase 5; o progresso futuro deve ser decidido numa conferência de produto e engenharia.
+A arquitetura não define uma Phase 5; o progresso futuro deve ser decidido numa conferência de produto e engenharia.
+
