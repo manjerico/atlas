@@ -3,9 +3,9 @@
 TYPE_REGISTRY = {
     "zone": {
         "allowed_geometry_types": ["Polygon"],
-        "parameter_schema": {},
+        "parameter_schema": {"peakpower_kw": {"type": "number", "required": False}},
         "render_style": "zone_outline",
-        "engines": [],
+        "engines": ["solar_potential", "water_context"],
         "category": "zone",
         "modifiable_terrain": False,
         "allow_outside_parcel": False,
@@ -41,7 +41,7 @@ TYPE_REGISTRY = {
         "allowed_geometry_types": ["Polygon"],
         "parameter_schema": {},
         "render_style": "crop_zone",
-        "engines": [],
+        "engines": ["cultivable_area"],
         "category": "agriculture",
         "modifiable_terrain": False,
         "allow_outside_parcel": False,

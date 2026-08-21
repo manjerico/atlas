@@ -355,7 +355,8 @@
   const atlasV2Escape = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
   const atlasV2TypeLabels = { zone:'Zona de análise', platform:'Plataforma', pond:'Charca', access:'Acesso', crop_area:'Área agrícola' };
   const atlasV2EngineLabels = { earthwork:'Terraplanagem', cultivable_area:'Área cultivável', solar_potential:'Potencial solar', water_context:'Contexto hídrico' };
-  const atlasV2EnginesFor = (type) => type === 'platform' ? [['earthwork', 'Calcular terraplanagem']] : type === 'crop_area' ? [['cultivable_area', 'Avaliar cultivo']] : type === 'zone' ? [['solar_potential', 'Avaliar solar'], ['water_context', 'Avaliar água']] : [];
+  const atlasV2EngineActions = { earthwork:'Calcular terraplanagem', cultivable_area:'Avaliar cultivo', solar_potential:'Avaliar solar', water_context:'Avaliar água' };
+  const atlasV2EnginesFor = (type, store) => ((store.typeRegistry[type] || {}).engines || []).filter((engine) => atlasV2EngineActions[engine]).map((engine) => [engine, atlasV2EngineActions[engine]]);
   function atlasV2MetricEntries(result) {
     const metrics = result.metrics || {};
     if (result.engine_type === 'earthwork') return [['Área', `${metrics.area_total_m2} m²`], ['Corte', `${metrics.volume_corte_m3} m³`], ['Aterro', `${metrics.volume_aterro_m3} m³`], ['Saldo', `${metrics.saldo_m3} m³`]];
@@ -408,9 +409,9 @@
     document.getElementById('atlas-v2-object-list').innerHTML = objects.length
       ? objects.map((object) => {
           const count = Object.keys(store.simulationResults[object.id] || {}).length;
-          const engines = scenarioReady ? atlasV2EnginesFor(object.type) : [];
+          const engines = scenarioReady ? atlasV2EnginesFor(object.type, store) : [];
           const actions = engines.map(([engine, label]) => `<button class="button button-secondary" data-atlas-run="${object.id}" data-atlas-engine="${engine}" type="button">${label}</button>`).join('');
-          return `<article class="proposal-object${store.uiState.selectedObjectId === object.id ? ' is-selected' : ''}"><div class="proposal-object-head"><span class="object-glyph" aria-hidden="true">◇</span><div class="proposal-object-copy"><div class="proposal-object-name">${atlasV2Escape(object.name)}</div><div class="proposal-object-meta">${atlasV2Escape(atlasV2TypeLabels[object.type] || object.type)}${count ? ` · ${count} resultado${count === 1 ? '' : 's'}` : ''}</div></div><button class="button button-secondary" data-atlas-focus="${object.id}" type="button">Ver</button></div>${actions ? `<div class="action-row">${actions}</div>` : (scenarioReady ? '' : '<div class="empty-state">Escolhe ou cria uma alternativa para analisar esta intervenção.</div>')}</article>`;
+          return `<article class="proposal-object${store.uiState.selectedObjectId === object.id ? ' is-selected' : ''}"><div class="proposal-object-head"><span class="object-glyph" aria-hidden="true">◇</span><div class="proposal-object-copy"><div class="proposal-object-name">${atlasV2Escape(object.name)}</div><div class="proposal-object-meta">${atlasV2Escape(atlasV2TypeLabels[object.type] || object.type)}${count ? ` · ${count} resultado${count === 1 ? '' : 's'}` : ''}</div></div><button class="button button-secondary" data-atlas-focus="${object.id}" type="button">Ver</button></div>${actions ? `<div class="action-row">${actions}</div>` : `<div class="empty-state">${scenarioReady ? 'Esta instalação ainda não disponibiliza uma análise para esta intervenção.' : 'Escolhe ou cria uma alternativa para analisar esta intervenção.'}</div>`}</article>`;
         }).join('')
       : '<div class="task-card"><h4>A proposta está vazia</h4><p>Usa “Adicionar” para desenhar a primeira intervenção no mapa.</p></div>';
     const allResults = Object.values(store.simulationResults).flatMap((results) => Object.values(results));
@@ -427,7 +428,7 @@
     if (store.baseParcel) L.geoJSON(store.baseParcel.geometry, { style: { color:'#b5602f', weight:2, fillOpacity:.04, dashArray:'5 4' } }).addTo(atlasV2Layers);
     const activeScenario = store.activeScenario;
     objects.forEach((object) => {
-      const engines = atlasV2EnginesFor(object.type);
+      const engines = atlasV2EnginesFor(object.type, store);
       const simulate = activeScenario ? engines.map(([engineType, label]) => `<button data-atlas-v2-simulate="${object.id}" data-atlas-v2-engine="${engineType}">${label}</button> `).join('') : '';
       const refresh = activeScenario && object.original_object_id ? `<button data-atlas-v2-refresh="${object.id}">Atualizar</button> ` : '';
       const remove = `<button data-atlas-v2-delete="${object.id}">Eliminar</button>`;
@@ -529,6 +530,7 @@
     document.getElementById('atlas-v2-object').onclick = () => { const name = objectName.value.trim(); if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); if (!name) return atlasV2SetMessage('Indica o nome do objeto.'); try { atlasV2Start('object', { type:typeInput.value, name, parameters:JSON.parse(parametersInput.value || '{}') }); } catch (_) { atlasV2SetMessage('Os parâmetros avançados não contêm JSON válido.'); } };
     document.getElementById('atlas-v2-finish').onclick = atlasV2Finish;
     atlasV2Render();
+    store.loadTypeRegistry().catch(() => {});
   });
   const camadaOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',

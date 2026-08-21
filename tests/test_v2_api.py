@@ -4,6 +4,7 @@ import sys
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 class WorkspaceApiTests(unittest.TestCase):
@@ -115,6 +116,61 @@ class WorkspaceApiTests(unittest.TestCase):
         finally:
             database.close()
         self.assertEqual(count, 1)
+
+    def test_cultivable_area_runs_through_the_v1_adapter(self):
+        lat, lon = 37.357448, -8.308065
+        parcel = {
+            "geometry": {"type": "Polygon", "coordinates": [[[lon - .002, lat - .002], [lon + .002, lat - .002], [lon + .002, lat + .002], [lon - .002, lat + .002], [lon - .002, lat - .002]]]},
+            "crs": "EPSG:4326",
+        }
+        project = self.client.post("/api/v2/projects", json={"name": "Cultivo", "base_parcel": parcel}).get_json()
+        geometry = {"type": "Polygon", "coordinates": [[[lon - .0005, lat - .0005], [lon + .0005, lat - .0005], [lon, lat + .0005], [lon - .0005, lat - .0005]]]}
+        object_response = self.client.post(
+            f"/api/v2/projects/{project['id']}/objects",
+            json={"type": "crop_area", "name": "Olival", "geometry": geometry, "parameters": {}},
+        )
+        self.assertEqual(object_response.status_code, 201)
+        scenario = self.client.post(f"/api/v2/projects/{project['id']}/scenarios", json={"name": "Agrícola"}).get_json()
+        scenario_object = scenario["objects"][0]
+        with patch("motor_agricultura._query_geometrias", return_value=[]):
+            response = self.client.post(
+                "/api/v2/simulations/run",
+                json={"scenario_id": scenario["id"], "scenario_object_id": scenario_object["id"], "engine_type": "cultivable_area"},
+            )
+        self.assertEqual(response.status_code, 201)
+        result = response.get_json()
+        self.assertEqual(result["status"], "success")
+        self.assertGreater(result["metrics"]["area_total_ha"], 0)
+        self.assertIn("percentagem_cultivavel", result["metrics"])
+        self.assertEqual(result["parameters_used"], {})
+
+    def test_type_registry_only_advertises_available_adapters(self):
+        from atlas_v2.adapters import ADAPTERS
+
+        registry = self.client.get("/api/v2/types").get_json()
+        advertised = {engine for definition in registry.values() for engine in definition["engines"]}
+        self.assertTrue(advertised)
+        self.assertLessEqual(advertised, set(ADAPTERS))
+        self.assertIn("cultivable_area", registry["crop_area"]["engines"])
+
+    def test_zone_engines_run_without_loading_the_mdt(self):
+        project = self.create_project()
+        geometry = {"type": "Polygon", "coordinates": [[[1, 1], [4, 1], [1, 4], [1, 1]]]}
+        self.client.post(
+            f"/api/v2/projects/{project['id']}/objects",
+            json={"type": "zone", "name": "Zona", "geometry": geometry, "parameters": {"peakpower_kw": 2}},
+        )
+        scenario = self.client.post(f"/api/v2/projects/{project['id']}/scenarios", json={"name": "Contexto"}).get_json()
+        scenario_object = scenario["objects"][0]
+        solar = {"answer": {"melhor_caso": {"potencial": "Elevado", "producao_especifica_kwh_por_kwp_ano": 1600, "irradiacao_anual_kwh_m2": 1900, "angulo_otimo_graus": 30}, "terreno_real": {"declive_estimado_graus": 4, "producao_estimada_kwh_por_kwp_ano": 1500}}, "limitations": []}
+        water = {"answer": {"indicadores_num_raio_1km": {"agua_superficie_perto": True, "captacao_subterranea_perto": False, "infraestrutura_rega_perto": True}, "precipitacao_media_mm_ano": 500, "sistema_aquifero": {"nome": "Aquífero"}, "pontos_agua_subterranea": {"total_no_raio": 3}}, "confidence": {"label": "Média"}, "limitations": []}
+        with patch("motor_solar.montar_conclusao", return_value=solar), patch("motor_hidrico.montar_conclusao", return_value=water):
+            solar_response = self.client.post("/api/v2/simulations/run", json={"scenario_id": scenario["id"], "scenario_object_id": scenario_object["id"], "engine_type": "solar_potential"})
+            water_response = self.client.post("/api/v2/simulations/run", json={"scenario_id": scenario["id"], "scenario_object_id": scenario_object["id"], "engine_type": "water_context"})
+        self.assertEqual(solar_response.status_code, 201)
+        self.assertEqual(water_response.status_code, 201)
+        results = self.client.get(f"/api/v2/projects/{project['id']}/scenarios/{scenario['id']}/results").get_json()["results"]
+        self.assertEqual({result["engine_type"] for result in results}, {"solar_potential", "water_context"})
 
     def test_scenario_snapshot_survives_project_object_deletion(self):
         project = self.create_project()

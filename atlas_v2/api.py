@@ -268,7 +268,8 @@ def run_simulation():
     try:
         adapter.validate_input(scenario_object, parameters)
         started = perf_counter()
-        raw_output = adapter.execute(terrain_context(project), scenario_object)
+        context = terrain_context(project) if getattr(adapter, "requires_terrain", True) else None
+        raw_output = adapter.execute(context, scenario_object, parameters)
         normalized = adapter.from_motor_output(raw_output, scenario_object, parameters)
         normalized["computation_time_ms"] = round((perf_counter() - started) * 1000)
         stored = repository().replace_simulation_result(scenario_id, scenario_object_id, engine_type, normalized)

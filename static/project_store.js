@@ -5,6 +5,7 @@
       this.currentProject = null;
       this.baseParcel = null;
       this.objects = [];
+      this.typeRegistry = {};
       this.scenarios = [];
       this.activeScenarioId = null;
       this.simulationResults = {};
@@ -83,6 +84,14 @@
     }
 
     async listProjects() { return (await this.request('/projects')).projects; }
+
+    async loadTypeRegistry() {
+      try {
+        this.typeRegistry = await this.request('/types');
+        this.clearError(); this.emit();
+        return this.typeRegistry;
+      } catch (error) { this.setError(error); throw error; }
+    }
 
     async listScenarios() {
       if (!this.currentProject) return [];
