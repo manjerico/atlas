@@ -64,15 +64,24 @@
   #sidebar-reopen{position:absolute;z-index:710;right:16px;top:16px;width:auto;padding:0 13px;gap:7px;display:none;box-shadow:0 8px 24px rgba(18,43,34,.2);font-family:var(--font-body);font-weight:600;}
   body.sidebar-collapsed #sidebar-reopen{display:flex;align-items:center;}
   .workspace-scroll{overflow-y:auto;overscroll-behavior:contain;padding:14px;scrollbar-width:thin;}
-  .workflow{display:grid;gap:10px;}
-  .workflow-step{background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px;transition:border-color .18s ease,box-shadow .18s ease;}
-  .workflow-step.is-current{border-color:#8bb7a8;box-shadow:0 0 0 3px rgba(31,112,91,.08);}
-  .workflow-step.is-disabled{opacity:.58;}
-  .step-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
-  .step-number{width:24px;height:24px;border-radius:8px;background:var(--paper-2);color:var(--teal-dark);display:grid;place-items:center;font-family:var(--font-mono);font-size:.68rem;font-weight:600;}
-  .workflow-step.is-current .step-number{background:var(--teal);color:#fff;}
-  .step-title{font-size:.83rem;font-weight:600;flex:1;}
-  .step-meta{font-size:.7rem;color:var(--muted);}
+  .context-strip{margin-bottom:12px;border:1px solid var(--border);border-radius:13px;background:#fff;overflow:hidden;}
+  .context-summary{display:flex;align-items:center;gap:10px;padding:11px 12px;}
+  .context-icon{width:30px;height:30px;border-radius:9px;background:#e8f2ee;color:var(--teal);display:grid;place-items:center;font-size:.85rem;flex:0 0 auto;}
+  .context-copy{flex:1;min-width:0;}.context-label{font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}.context-title{font-size:.79rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}.context-subtitle{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .context-panel{display:none;padding:12px;border-top:1px solid var(--border);background:var(--paper);}.context-panel.is-visible{display:block;}
+  .context-group+.context-group{margin-top:13px;padding-top:13px;border-top:1px solid var(--border);}.context-group-title{font-size:.72rem;font-weight:600;margin-bottom:7px;}
+  .workspace-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:#e9eeeb;margin-bottom:13px;}
+  .workspace-tab{border:0;background:transparent;color:var(--muted);border-radius:9px;padding:8px 5px;font:600 .71rem var(--font-body);cursor:pointer;white-space:nowrap;}
+  .workspace-tab.is-active{background:#fff;color:var(--teal-dark);box-shadow:0 2px 8px rgba(18,43,34,.09);}
+  .workspace-view{display:none;}.workspace-view.is-active{display:block;}
+  .view-intro{margin:2px 2px 13px;}.view-intro h3{font-family:var(--font-display);font-size:1.16rem;margin:0 0 5px;}.view-intro p{font-size:.76rem;line-height:1.45;color:var(--muted);margin:0;}
+  .task-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:11px;}.task-card-accent{background:linear-gradient(145deg,#f3f8f5,#fff);border-color:#cbded5;}.task-card h4{font-size:.83rem;margin:0 0 5px;}.task-card p{font-size:.74rem;line-height:1.45;color:var(--muted);margin:0;}
+  .task-kicker{font-size:.64rem;color:var(--teal);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+  .proposal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.proposal-toolbar-copy{min-width:0;}.proposal-toolbar-title{font-size:.82rem;font-weight:600;}.proposal-toolbar-meta{font-size:.69rem;color:var(--muted);margin-top:2px;}
+  .composer{display:none;background:#fff;border:1px solid #9fc4b7;border-radius:14px;padding:13px;margin-bottom:11px;box-shadow:0 0 0 3px rgba(31,112,91,.07);}.composer.is-visible{display:block;}.composer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}.composer-head strong{font-size:.82rem;}
+  .object-list{display:grid;gap:8px;}.proposal-object{border:1px solid var(--border);border-radius:12px;background:#fff;padding:11px;}.proposal-object.is-selected{border-color:#7eaf9f;box-shadow:0 0 0 3px rgba(31,112,91,.08);}.proposal-object-head{display:flex;align-items:flex-start;gap:9px;}.object-glyph{width:28px;height:28px;border-radius:8px;background:var(--paper-2);display:grid;place-items:center;font-size:.8rem;}.proposal-object-copy{flex:1;min-width:0;}.proposal-object-name{font-size:.79rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.proposal-object-meta{font-size:.67rem;color:var(--muted);margin-top:2px;}.proposal-object .action-row{margin-top:9px;}.proposal-object .button{padding:6px 8px;font-size:.68rem;}
+  .result-list{display:grid;gap:9px;}.result-card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:12px;}.result-card-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}.result-card-title{flex:1;min-width:0;}.result-card-title strong{display:block;font-size:.78rem;}.result-card-title span{display:block;color:var(--muted);font-size:.67rem;margin-top:2px;}.result-badge{font-size:.62rem;color:var(--ok);background:#e9f4ed;border-radius:999px;padding:4px 7px;white-space:nowrap;}.result-badge.is-stale{color:#8b512c;background:#faeee4;}.result-badge.is-error{color:#8a3c35;background:#f9e9e7;}.result-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}.result-metric{background:var(--paper-2);border-radius:8px;padding:7px;}.result-metric span{display:block;font-size:.6rem;color:var(--muted);}.result-metric strong{display:block;font-size:.72rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;}.result-error{font-size:.72rem;line-height:1.45;color:#7d3d36;background:#fff1ef;border-radius:9px;padding:9px;}
+  .classic-tools-note{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 10px;border-radius:10px;background:var(--paper-2);font-size:.69rem;color:var(--muted);}
   .field{display:grid;gap:5px;margin-top:8px;}
   .field label{font-size:.68rem;font-weight:600;color:var(--muted);letter-spacing:.02em;}
   .field input,.field select{width:100%;min-height:36px;border:1px solid #ced8d1;border-radius:9px;padding:7px 9px;background:#fff;color:var(--ink);font:inherit;font-size:.8rem;outline:none;}
@@ -82,19 +91,12 @@
   .button:hover{transform:translateY(-1px);}
   .button-primary{background:var(--teal);color:#fff;}.button-primary:hover{background:#195d4c;}
   .button-secondary{background:#fff;color:var(--ink);border-color:#ced8d1;}.button-secondary:hover{background:var(--paper-2);}
-  .button-danger{color:#8d342c;}
   .button:disabled{opacity:.45;cursor:not-allowed;transform:none;}
   .choice-row{display:none;gap:7px;margin-top:9px;}.choice-row.is-visible{display:flex;}.choice-row select{min-width:0;flex:1;}
   .advanced-parameters{border-top:0;margin-top:9px;padding-top:0;}.advanced-parameters summary{font-size:.72rem;color:var(--muted);}
   .workspace-message{display:none;margin:10px 0 0;padding:9px 10px;border-radius:9px;background:#fff4f0;color:#82372d;font-size:.75rem;line-height:1.4;}
   .workspace-message.is-visible{display:block;}.workspace-message[data-kind="info"]{background:#edf6f2;color:#245b4d;}
-  .object-summary{display:grid;gap:6px;margin-top:8px;}
-  .object-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px;background:var(--paper-2);font-size:.74rem;}
-  .object-row-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.object-row-type{color:var(--muted);font-size:.66rem;}
   .empty-state{font-size:.74rem;color:var(--muted);line-height:1.45;padding:4px 0;}
-  .legacy-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
-  .section-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:0 2px 10px;}
-  .section-heading h3{font-family:var(--font-display);font-size:1rem;margin:0;}.section-heading span{font-size:.67rem;color:var(--muted);}
   #analysis-content{padding-bottom:3px;}
   .hint{
     font-family:var(--font-body); color:var(--muted); font-size:0.92rem; line-height:1.55;
@@ -253,50 +255,69 @@
         <button id="sidebar-collapse" class="icon-button" type="button" aria-label="Recolher painel" aria-controls="panel" aria-expanded="true">›</button>
       </div>
       <div class="workspace-scroll">
-        <div class="workflow">
-          <section id="atlas-step-project" class="workflow-step is-current">
-            <div class="step-head"><span class="step-number">01</span><span class="step-title">Projeto</span><span id="atlas-project-meta" class="step-meta">Base territorial</span></div>
-            <div class="field"><label for="atlas-v2-project-name">Nome do projeto</label><input id="atlas-v2-project-name" placeholder="Ex.: Quinta da Ribeira" autocomplete="off"></div>
-            <div class="action-row">
-              <button id="atlas-v2-new" class="button button-primary" type="button">Desenhar novo</button>
-              <button id="atlas-v2-open" class="button button-secondary" type="button">Abrir existente</button>
+        <section class="context-strip" aria-label="Área de trabalho atual">
+          <div class="context-summary">
+            <span class="context-icon" aria-hidden="true">⌂</span>
+            <div class="context-copy">
+              <div class="context-label">Área de trabalho</div>
+              <div id="atlas-context-title" class="context-title">Exploração livre</div>
+              <div id="atlas-context-subtitle" class="context-subtitle">Não é necessário criar um projeto para consultar o mapa</div>
             </div>
-            <div id="atlas-v2-project-choice" class="choice-row"><select id="atlas-v2-project-selector" aria-label="Projetos disponíveis"></select><button id="atlas-v2-project-load" class="button button-primary" type="button">Abrir</button></div>
-          </section>
-
-          <section id="atlas-step-scenario" class="workflow-step is-disabled">
-            <div class="step-head"><span class="step-number">02</span><span class="step-title">Cenário</span><span id="atlas-scenario-meta" class="step-meta">Escolha uma hipótese</span></div>
-            <div class="field"><label for="atlas-v2-scenario-name">Nome do cenário</label><input id="atlas-v2-scenario-name" placeholder="Ex.: Implantação A" autocomplete="off"></div>
-            <div class="action-row">
-              <button id="atlas-v2-scenario" class="button button-primary" type="button">Criar cenário</button>
-              <button id="atlas-v2-scenario-open" class="button button-secondary" type="button">Abrir</button>
-              <button id="atlas-v2-scenario-copy" class="button button-secondary" type="button">Duplicar</button>
+            <button id="atlas-context-toggle" class="button button-secondary" type="button">Gerir</button>
+          </div>
+          <div id="atlas-context-panel" class="context-panel">
+            <div class="context-group">
+              <div class="context-group-title">Guardar numa área de trabalho</div>
+              <div class="field"><label for="atlas-v2-project-name">Nome</label><input id="atlas-v2-project-name" placeholder="Ex.: Quinta da Ribeira" autocomplete="off"></div>
+              <div class="action-row"><button id="atlas-v2-new" class="button button-primary" type="button">Criar e desenhar limite</button><button id="atlas-v2-open" class="button button-secondary" type="button">Abrir existente</button></div>
+              <div id="atlas-v2-project-choice" class="choice-row"><select id="atlas-v2-project-selector" aria-label="Áreas de trabalho disponíveis"></select><button id="atlas-v2-project-load" class="button button-primary" type="button">Abrir</button></div>
             </div>
-            <div id="atlas-v2-scenario-choice" class="choice-row"><select id="atlas-v2-scenario-selector" aria-label="Cenários disponíveis"></select><button id="atlas-v2-scenario-load" class="button button-primary" type="button">Abrir</button></div>
+            <div id="atlas-scenario-controls" class="context-group">
+              <div class="context-group-title">Alternativas da proposta</div>
+              <div class="field"><label for="atlas-v2-scenario-name">Nome da alternativa</label><input id="atlas-v2-scenario-name" placeholder="Ex.: Implantação A" autocomplete="off"></div>
+              <div class="action-row"><button id="atlas-v2-scenario" class="button button-primary" type="button">Nova alternativa</button><button id="atlas-v2-scenario-open" class="button button-secondary" type="button">Mudar</button><button id="atlas-v2-scenario-copy" class="button button-secondary" type="button">Duplicar atual</button></div>
+              <div id="atlas-v2-scenario-choice" class="choice-row"><select id="atlas-v2-scenario-selector" aria-label="Alternativas disponíveis"></select><button id="atlas-v2-scenario-load" class="button button-primary" type="button">Abrir</button></div>
+            </div>
           </section>
 
-          <section id="atlas-step-objects" class="workflow-step is-disabled">
-            <div class="step-head"><span class="step-number">03</span><span class="step-title">Objetos</span><span id="atlas-object-meta" class="step-meta">0 no mapa</span></div>
-            <div class="field"><label for="atlas-v2-object-name">Nome do objeto</label><input id="atlas-v2-object-name" placeholder="Ex.: Plataforma principal" autocomplete="off"></div>
-            <div class="field"><label for="atlas-v2-type">Tipo</label><select id="atlas-v2-type"><option value="zone">Zona</option><option value="platform">Plataforma</option><option value="pond">Charca</option><option value="access">Acesso</option><option value="crop_area">Área agrícola</option></select></div>
-            <details class="advanced-parameters"><summary>Parâmetros avançados</summary><div class="field"><label for="atlas-v2-parameters">JSON</label><input id="atlas-v2-parameters" value="{}" spellcheck="false"></div></details>
-            <div class="action-row"><button id="atlas-v2-object" class="button button-primary" type="button">Desenhar objeto</button><button id="atlas-v2-finish" class="button button-primary" type="button" style="display:none;">Concluir desenho</button></div>
-            <div id="atlas-v2-object-list" class="object-summary"><div class="empty-state">Os objetos do projeto surgem aqui e no mapa.</div></div>
-          </section>
+        <nav class="workspace-nav" aria-label="Tarefas do Atlas">
+          <button class="workspace-tab is-active" data-atlas-view="explore" type="button">Explorar</button>
+          <button class="workspace-tab" data-atlas-view="proposal" type="button">Proposta</button>
+          <button class="workspace-tab" data-atlas-view="results" type="button">Resultados</button>
+        </nav>
+        <div id="atlas-drawing-bar" class="task-card task-card-accent" style="display:none;"><div class="task-kicker">Desenho em curso</div><p>Clica no mapa para marcar os vértices.</p><div class="action-row"><button id="atlas-v2-finish" class="button button-primary" type="button">Concluir desenho</button><button id="atlas-drawing-cancel" class="button button-secondary" type="button">Cancelar</button></div></div>
 
-          <section id="atlas-step-results" class="workflow-step is-disabled">
-            <div class="step-head"><span class="step-number">04</span><span class="step-title">Análises e resultados</span><span id="atlas-results-meta" class="step-meta">Sem resultados</span></div>
-            <div id="atlas-results-summary" class="empty-state">Abra um cenário e selecione um objeto no mapa para executar as análises disponíveis.</div>
-          </section>
-        </div>
-        <div id="atlas-v2-message" class="workspace-message" role="status" aria-live="polite"></div>
+        <section id="atlas-view-explore" class="workspace-view is-active">
+          <div class="view-intro"><h3>Explora o território</h3><p>Seleciona um ponto ou uma parcela no mapa. O Atlas apresenta o diagnóstico desta localização aqui.</p></div>
+          <div class="task-card task-card-accent">
+            <div class="task-kicker">Começar</div><h4>Consulta imediata</h4><p>Não precisas de configurar um projeto. Aproxima o mapa até veres as parcelas e clica na localização que queres estudar.</p>
+          </div>
+          <div id="analysis-content"><div class="hint"><strong>À espera de uma localização</strong><br>O diagnóstico jurídico, solar, agrícola, hídrico e ambiental aparecerá neste espaço.</div></div>
+          <div class="classic-tools-note"><span aria-hidden="true">◌</span><span>Charca manual, terraplanagem, agricultura e vista 3D continuam disponíveis na barra do mapa.</span></div>
+        </section>
 
-        <section class="legacy-section">
-          <div class="section-heading"><h3>Consulta rápida</h3><span>Fluxo V1 preservado</span></div>
-          <div id="analysis-content">
-            <div class="hint"><strong>Análise por localização</strong><br>Clica numa parcela ou num ponto do mapa para consultar os motores Jurídico, Energético, Agronómico, Hídrico e Ambiental.</div>
+        <section id="atlas-view-proposal" class="workspace-view">
+          <div class="view-intro"><h3>Desenha uma proposta</h3><p>Adiciona intervenções à parcela e avalia cada uma diretamente no mapa.</p></div>
+          <div id="atlas-proposal-empty" class="task-card task-card-accent"><h4>Abre uma área de trabalho</h4><p>Para guardar objetos e comparar alternativas, começa por criar ou abrir uma área de trabalho.</p><div class="action-row"><button id="atlas-proposal-setup" class="button button-primary" type="button">Configurar área de trabalho</button></div></div>
+          <div id="atlas-proposal-content" style="display:none;">
+            <div class="proposal-toolbar"><div class="proposal-toolbar-copy"><div class="proposal-toolbar-title" id="atlas-proposal-title">Proposta atual</div><div class="proposal-toolbar-meta" id="atlas-object-meta">0 objetos no mapa</div></div><button id="atlas-object-add" class="button button-primary" type="button">+ Adicionar</button></div>
+            <div id="atlas-object-composer" class="composer">
+              <div class="composer-head"><strong>Nova intervenção</strong><button id="atlas-object-cancel" class="icon-button" type="button" aria-label="Cancelar">×</button></div>
+              <div class="field"><label for="atlas-v2-type">O que queres desenhar?</label><select id="atlas-v2-type"><option value="zone">Zona de análise</option><option value="platform">Plataforma</option><option value="pond">Charca</option><option value="access">Acesso</option><option value="crop_area">Área agrícola</option></select></div>
+              <div class="field"><label for="atlas-v2-object-name">Nome</label><input id="atlas-v2-object-name" placeholder="Ex.: Plataforma principal" autocomplete="off"></div>
+              <details class="advanced-parameters"><summary>Opções avançadas</summary><div class="field"><label for="atlas-v2-parameters">Parâmetros JSON</label><input id="atlas-v2-parameters" value="{}" spellcheck="false"></div></details>
+              <div class="action-row"><button id="atlas-v2-object" class="button button-primary" type="button">Começar desenho</button></div>
+            </div>
+            <div id="atlas-v2-object-list" class="object-list"><div class="empty-state">Ainda não existem intervenções nesta proposta.</div></div>
           </div>
         </section>
+
+        <section id="atlas-view-results" class="workspace-view">
+          <div class="view-intro"><h3>Resultados</h3><p>As análises guardadas para a alternativa atual aparecem aqui, agrupadas pela intervenção.</p></div>
+          <div id="atlas-results-summary" class="task-card"><h4>Ainda não existem resultados</h4><p>Vai a “Proposta”, escolhe uma intervenção e executa uma das análises disponíveis.</p></div>
+          <div id="atlas-results-list" class="result-list"></div>
+        </section>
+        <div id="atlas-v2-message" class="workspace-message" role="status" aria-live="polite"></div>
       </div>
     </aside>
   </main>
@@ -329,8 +350,25 @@
   let atlasV2DrawingActive = false;
   let atlasV2Draft = null;
   const atlasV2Layers = L.featureGroup().addTo(map);
+  const atlasV2ObjectLayers = new Map();
   const atlasV2Geometry = (points) => ({ type: 'Polygon', coordinates: [[...points, points[0]]] });
   const atlasV2Escape = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
+  const atlasV2TypeLabels = { zone:'Zona de análise', platform:'Plataforma', pond:'Charca', access:'Acesso', crop_area:'Área agrícola' };
+  const atlasV2EngineLabels = { earthwork:'Terraplanagem', cultivable_area:'Área cultivável', solar_potential:'Potencial solar', water_context:'Contexto hídrico' };
+  const atlasV2EnginesFor = (type) => type === 'platform' ? [['earthwork', 'Calcular terraplanagem']] : type === 'crop_area' ? [['cultivable_area', 'Avaliar cultivo']] : type === 'zone' ? [['solar_potential', 'Avaliar solar'], ['water_context', 'Avaliar água']] : [];
+  function atlasV2MetricEntries(result) {
+    const metrics = result.metrics || {};
+    if (result.engine_type === 'earthwork') return [['Área', `${metrics.area_total_m2} m²`], ['Corte', `${metrics.volume_corte_m3} m³`], ['Aterro', `${metrics.volume_aterro_m3} m³`], ['Saldo', `${metrics.saldo_m3} m³`]];
+    if (result.engine_type === 'cultivable_area') return [['Área total', `${metrics.area_total_ha} ha`], ['Cultivável', `${metrics.area_cultivavel_ha} ha`], ['Aproveitamento', `${metrics.percentagem_cultivavel}%`]];
+    if (result.engine_type === 'solar_potential') return [['Classificação', metrics.potential], ['Produção específica', `${metrics.specific_yield_kwh_kwp_year} kWh/kWp/ano`]];
+    if (result.engine_type === 'water_context') return [['Precipitação', `${metrics.annual_precipitation_mm ?? 'n/d'} mm/ano`], ['Pontos de água', metrics.water_points_nearby]];
+    return Object.entries(metrics).slice(0, 4);
+  }
+  function atlasV2FriendlyResultError(result) {
+    const detail = (result.errors || [])[0] || 'Não foi possível concluir esta análise.';
+    if (detail.includes('PVGIS')) return 'O serviço externo de dados solares não respondeu. Tenta novamente mais tarde.';
+    return detail;
+  }
   function atlasV2SetMessage(text, kind = 'error') {
     const message = document.getElementById('atlas-v2-message');
     message.textContent = text || '';
@@ -346,66 +384,84 @@
   function atlasV2Render() {
     const store = window.projectStore, status = document.getElementById('atlas-v2-status');
     atlasV2Layers.clearLayers();
+    atlasV2ObjectLayers.clear();
     atlasV2ApplySidebarState(Boolean(store.uiState.sidebarCollapsed));
-    status.textContent = store.currentProject ? `${store.currentProject.name}${store.activeScenario ? ` · ${store.activeScenario.name}` : ' · sem cenário ativo'}` : 'Sem projeto aberto';
-    if (store.lastError) atlasV2SetMessage(store.lastError);
+    const activeView = store.uiState.activeWorkspaceView || 'explore';
     const projectReady = Boolean(store.currentProject), scenarioReady = Boolean(store.activeScenario);
     const objects = scenarioReady ? store.activeScenario.objects : store.objects;
-    document.getElementById('atlas-step-project').classList.toggle('is-current', !projectReady);
-    document.getElementById('atlas-step-scenario').classList.toggle('is-disabled', !projectReady);
-    document.getElementById('atlas-step-scenario').classList.toggle('is-current', projectReady && !scenarioReady);
-    document.getElementById('atlas-step-objects').classList.toggle('is-disabled', !projectReady);
-    document.getElementById('atlas-step-objects').classList.toggle('is-current', projectReady && objects.length === 0);
-    document.getElementById('atlas-step-results').classList.toggle('is-disabled', !scenarioReady);
-    document.getElementById('atlas-step-results').classList.toggle('is-current', scenarioReady && objects.length > 0);
+    status.textContent = activeView === 'explore' ? 'Consulta territorial' : projectReady ? store.currentProject.name : 'Exploração livre';
+    if (store.lastError) atlasV2SetMessage(store.lastError);
+    document.getElementById('atlas-context-title').textContent = projectReady ? store.currentProject.name : 'Exploração livre';
+    document.getElementById('atlas-context-subtitle').textContent = projectReady ? (scenarioReady ? `Alternativa: ${store.activeScenario.name}` : 'Projeto base · sem alternativa ativa') : 'Não é necessário criar um projeto para consultar o mapa';
+    document.getElementById('atlas-context-panel').classList.toggle('is-visible', Boolean(store.uiState.contextPanelOpen));
+    document.getElementById('atlas-context-toggle').textContent = store.uiState.contextPanelOpen ? 'Fechar' : 'Gerir';
+    document.getElementById('atlas-scenario-controls').style.display = projectReady ? 'block' : 'none';
+    document.querySelectorAll('[data-atlas-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.atlasView === activeView));
+    document.querySelectorAll('.workspace-view').forEach((view) => view.classList.toggle('is-active', view.id === `atlas-view-${activeView}`));
+    document.getElementById('atlas-proposal-empty').style.display = projectReady ? 'none' : 'block';
+    document.getElementById('atlas-proposal-content').style.display = projectReady ? 'block' : 'none';
+    document.getElementById('atlas-object-composer').classList.toggle('is-visible', Boolean(store.uiState.objectComposerOpen));
+    document.getElementById('atlas-proposal-title').textContent = scenarioReady ? store.activeScenario.name : 'Projeto base';
+    document.getElementById('atlas-object-meta').textContent = `${objects.length} ${objects.length === 1 ? 'intervenção' : 'intervenções'} no mapa`;
     ['atlas-v2-scenario', 'atlas-v2-scenario-open', 'atlas-v2-object'].forEach((id) => { document.getElementById(id).disabled = !projectReady; });
     document.getElementById('atlas-v2-scenario-copy').disabled = !scenarioReady;
-    document.getElementById('atlas-project-meta').textContent = projectReady ? 'Base definida' : 'Base territorial';
-    document.getElementById('atlas-scenario-meta').textContent = scenarioReady ? store.activeScenario.name : 'Escolha uma hipótese';
-    document.getElementById('atlas-object-meta').textContent = `${objects.length} ${objects.length === 1 ? 'objeto' : 'objetos'}`;
-    const resultCount = Object.values(store.simulationResults).reduce((total, results) => total + Object.keys(results).length, 0);
-    document.getElementById('atlas-results-meta').textContent = resultCount ? `${resultCount} ${resultCount === 1 ? 'resultado' : 'resultados'}` : 'Sem resultados';
-    document.getElementById('atlas-results-summary').textContent = scenarioReady
-      ? (objects.length ? 'Seleciona um objeto no mapa para consultar ou atualizar as análises disponíveis.' : 'Adiciona um objeto a este cenário para iniciar as análises.')
-      : 'Abre um cenário para executar análises e guardar os resultados.';
     document.getElementById('atlas-v2-object-list').innerHTML = objects.length
       ? objects.map((object) => {
           const count = Object.keys(store.simulationResults[object.id] || {}).length;
-          return `<div class="object-row"><span class="object-row-name">${atlasV2Escape(object.name)}</span><span class="object-row-type">${atlasV2Escape(object.type)}${count ? ` · ${count} análise${count === 1 ? '' : 's'}` : ''}</span></div>`;
+          const engines = scenarioReady ? atlasV2EnginesFor(object.type) : [];
+          const actions = engines.map(([engine, label]) => `<button class="button button-secondary" data-atlas-run="${object.id}" data-atlas-engine="${engine}" type="button">${label}</button>`).join('');
+          return `<article class="proposal-object${store.uiState.selectedObjectId === object.id ? ' is-selected' : ''}"><div class="proposal-object-head"><span class="object-glyph" aria-hidden="true">◇</span><div class="proposal-object-copy"><div class="proposal-object-name">${atlasV2Escape(object.name)}</div><div class="proposal-object-meta">${atlasV2Escape(atlasV2TypeLabels[object.type] || object.type)}${count ? ` · ${count} resultado${count === 1 ? '' : 's'}` : ''}</div></div><button class="button button-secondary" data-atlas-focus="${object.id}" type="button">Ver</button></div>${actions ? `<div class="action-row">${actions}</div>` : (scenarioReady ? '' : '<div class="empty-state">Escolhe ou cria uma alternativa para analisar esta intervenção.</div>')}</article>`;
         }).join('')
-      : '<div class="empty-state">Os objetos do projeto surgem aqui e no mapa.</div>';
+      : '<div class="task-card"><h4>A proposta está vazia</h4><p>Usa “Adicionar” para desenhar a primeira intervenção no mapa.</p></div>';
+    const allResults = Object.values(store.simulationResults).flatMap((results) => Object.values(results));
+    document.getElementById('atlas-results-summary').style.display = allResults.length ? 'none' : 'block';
+    document.getElementById('atlas-results-list').innerHTML = allResults.map((result) => {
+      const object = objects.find((item) => item.id === result.scenario_object_id);
+      const metrics = atlasV2MetricEntries(result).map(([label, value]) => `<div class="result-metric"><span>${atlasV2Escape(label)}</span><strong>${atlasV2Escape(value)}</strong></div>`).join('');
+      const failed = result.status === 'error', partial = result.status === 'partial';
+      const badgeClass = result.is_stale ? ' is-stale' : failed ? ' is-error' : '';
+      const badgeLabel = result.is_stale ? 'Desatualizado' : failed ? 'Não concluído' : partial ? 'Parcial' : 'Atual';
+      const content = failed ? `<div class="result-error">${atlasV2Escape(atlasV2FriendlyResultError(result))}</div>` : `<div class="result-metrics">${metrics}</div>`;
+      return `<article class="result-card"><div class="result-card-head"><div class="result-card-title"><strong>${atlasV2Escape(atlasV2EngineLabels[result.engine_type] || result.engine_type)}</strong><span>${atlasV2Escape(object ? object.name : 'Intervenção')} · ${new Date(result.computed_at).toLocaleString('pt-PT')}</span></div><span class="result-badge${badgeClass}">${badgeLabel}</span></div>${content}</article>`;
+    }).join('');
     if (store.baseParcel) L.geoJSON(store.baseParcel.geometry, { style: { color:'#b5602f', weight:2, fillOpacity:.04, dashArray:'5 4' } }).addTo(atlasV2Layers);
     const activeScenario = store.activeScenario;
     objects.forEach((object) => {
-      const engines = object.type === 'platform' ? [['earthwork', 'Simular terraplanagem']] : object.type === 'crop_area' ? [['cultivable_area', 'Analisar cultivo']] : object.type === 'zone' ? [['solar_potential', 'Analisar solar'], ['water_context', 'Analisar água']] : [];
+      const engines = atlasV2EnginesFor(object.type);
       const simulate = activeScenario ? engines.map(([engineType, label]) => `<button data-atlas-v2-simulate="${object.id}" data-atlas-v2-engine="${engineType}">${label}</button> `).join('') : '';
       const refresh = activeScenario && object.original_object_id ? `<button data-atlas-v2-refresh="${object.id}">Atualizar</button> ` : '';
       const remove = `<button data-atlas-v2-delete="${object.id}">Eliminar</button>`;
-      L.geoJSON(object.geometry, { style: { color:'#2f6f62', weight:3, fillOpacity:.12 } }).bindPopup(`<strong>${atlasV2Escape(object.name)}</strong><br><span style="color:#64706a">${atlasV2Escape(object.type)}</span><div class="map-popup-actions">${simulate}${refresh}<button data-atlas-v2-redraw="${object.id}">Redesenhar</button>${remove}</div>`).addTo(atlasV2Layers);
+      const layer = L.geoJSON(object.geometry, { style: { color: store.uiState.selectedObjectId === object.id ? '#b85f35' : '#2f6f62', weight:3, fillOpacity:.12 } }).bindPopup(`<strong>${atlasV2Escape(object.name)}</strong><br><span style="color:#64706a">${atlasV2Escape(atlasV2TypeLabels[object.type] || object.type)}</span><div class="map-popup-actions">${simulate}${refresh}<button data-atlas-v2-redraw="${object.id}">Redesenhar</button>${remove}</div>`).addTo(atlasV2Layers);
+      atlasV2ObjectLayers.set(object.id, layer);
     });
   }
   window.projectStore.subscribe(atlasV2Render);
+  async function atlasV2RunAndShow(objectId, engineType) {
+    atlasV2SetMessage(`A calcular ${atlasV2EngineLabels[engineType] || 'análise'}…`, 'info');
+    try {
+      const result = await window.projectStore.runSimulation(objectId, engineType);
+      window.projectStore.setUiState({ activeWorkspaceView:'results', selectedObjectId:objectId, sidebarCollapsed:false });
+      atlasV2SetMessage(result.status === 'error' ? 'A análise foi guardada, mas não foi possível obter uma conclusão.' : 'Análise concluída e guardada.', result.status === 'error' ? 'error' : 'info');
+    } catch (_) { /* ProjectStore presents the factual backend error. */ }
+  }
   map.on('popupopen', (event) => {
     const root = event.popup.getElement(), store = window.projectStore;
     const redraw = root.querySelector('[data-atlas-v2-redraw]'), remove = root.querySelector('[data-atlas-v2-delete]'), simulations = root.querySelectorAll('[data-atlas-v2-simulate]'), refresh = root.querySelector('[data-atlas-v2-refresh]');
     if (redraw) redraw.onclick = () => { const object = (store.activeScenario ? store.activeScenario.objects : store.objects).find((item) => item.id === redraw.dataset.atlasV2Redraw); if (object) atlasV2Start(store.activeScenario ? 'scenario-object-update' : 'object-update', object); };
     if (remove) remove.onclick = async () => { if (confirm('Eliminar este objeto?')) { if (store.activeScenario) await store.deleteScenarioObject(remove.dataset.atlasV2Delete); else await store.deleteObject(remove.dataset.atlasV2Delete); } };
     if (refresh) refresh.onclick = async () => { await store.updateScenarioObjectFromProject(refresh.dataset.atlasV2Refresh); };
-    simulations.forEach((simulate) => { simulate.onclick = async () => {
-        const engineType = simulate.dataset.atlasV2Engine;
-        const result = await store.runSimulation(simulate.dataset.atlasV2Simulate, engineType);
-        const metrics = result.metrics;
-        if (engineType === 'earthwork') event.popup.setContent(`<strong>Terraplanagem</strong><br>Área: ${metrics.area_total_m2} m²<br>Corte: ${metrics.volume_corte_m3} m³<br>Aterro: ${metrics.volume_aterro_m3} m³<br>Saldo: ${metrics.saldo_m3} m³`);
-        else if (engineType === 'cultivable_area') event.popup.setContent(`<strong>Área cultivável</strong><br>Área total: ${metrics.area_total_ha} ha<br>Cultivável: ${metrics.area_cultivavel_ha} ha<br>Percentagem: ${metrics.percentagem_cultivavel}%`);
-        else if (engineType === 'solar_potential') event.popup.setContent(`<strong>Potencial solar</strong><br>${metrics.potential}<br>Produção específica: ${metrics.specific_yield_kwh_kwp_year} kWh/kWp/ano`);
-        else event.popup.setContent(`<strong>Contexto hídrico</strong><br>Precipitação média: ${metrics.annual_precipitation_mm ?? 'n/d'} mm/ano<br>Pontos de água no raio: ${metrics.water_points_nearby}`);
-      };
-    });
+    simulations.forEach((simulate) => { simulate.onclick = () => atlasV2RunAndShow(simulate.dataset.atlasV2Simulate, simulate.dataset.atlasV2Engine); });
   });
   function atlasV2Start(kind, metadata) {
     atlasV2DrawingActive = true; atlasV2Draft = { kind, metadata, points: [] };
-    document.getElementById('atlas-v2-finish').style.display = 'inline-block';
+    document.getElementById('atlas-drawing-bar').style.display = 'block';
     atlasV2SetMessage('Clica no mapa para adicionar vértices e depois escolhe “Concluir desenho”.', 'info');
+  }
+  function atlasV2CancelDrawing() {
+    atlasV2DrawingActive = false; atlasV2Draft = null;
+    document.getElementById('atlas-drawing-bar').style.display = 'none';
+    atlasV2SetMessage('Desenho cancelado.', 'info');
+    atlasV2Render();
   }
   async function atlasV2Finish() {
     if (!atlasV2Draft || atlasV2Draft.points.length < 3) return atlasV2SetMessage('São necessários pelo menos três vértices para concluir o desenho.');
@@ -422,7 +478,8 @@
           : await window.projectStore.saveObject({ ...draft.metadata, geometry });
         if (result.warnings.length) atlasV2SetMessage(result.warnings.join(' '), 'info');
       }
-      atlasV2DrawingActive = false; atlasV2Draft = null; document.getElementById('atlas-v2-finish').style.display = 'none';
+      atlasV2DrawingActive = false; atlasV2Draft = null; document.getElementById('atlas-drawing-bar').style.display = 'none';
+      window.projectStore.setUiState({ activeWorkspaceView:'proposal', contextPanelOpen:false, objectComposerOpen:false });
     } catch (_) { /* ProjectStore exposes the error in the control. */ }
   }
   map.on('click', (event) => { if (atlasV2DrawingActive) { atlasV2Draft.points.push([event.latlng.lng, event.latlng.lat]); L.circleMarker(event.latlng, { radius:4, color:'#b5602f' }).addTo(atlasV2Layers); } });
@@ -438,13 +495,37 @@
     };
     document.getElementById('sidebar-collapse').onclick = () => store.setUiState({ sidebarCollapsed: true });
     document.getElementById('sidebar-reopen').onclick = () => store.setUiState({ sidebarCollapsed: false });
+    document.getElementById('atlas-context-toggle').onclick = () => store.setUiState({ contextPanelOpen: !store.uiState.contextPanelOpen });
+    document.querySelectorAll('[data-atlas-view]').forEach((button) => { button.onclick = () => store.setUiState({ activeWorkspaceView:button.dataset.atlasView }); });
+    document.getElementById('atlas-proposal-setup').onclick = () => store.setUiState({ contextPanelOpen:true });
+    document.getElementById('atlas-object-add').onclick = async () => {
+      if (!store.currentProject) return store.setUiState({ contextPanelOpen:true });
+      if (!store.activeScenario) {
+        if (store.scenarios.length === 1) await store.openScenario(store.scenarios[0].id);
+        else if (store.scenarios.length > 1) { store.setUiState({ contextPanelOpen:true }); return atlasV2SetMessage('Escolhe a alternativa em que queres trabalhar.', 'info'); }
+        else await store.createScenario('Proposta principal');
+      }
+      store.setUiState({ objectComposerOpen:true, activeWorkspaceView:'proposal' });
+    };
+    document.getElementById('atlas-object-cancel').onclick = () => store.setUiState({ objectComposerOpen:false });
+    document.getElementById('atlas-drawing-cancel').onclick = atlasV2CancelDrawing;
+    document.addEventListener('click', async (event) => {
+      const focus = event.target.closest('[data-atlas-focus]');
+      if (focus) {
+        store.setUiState({ selectedObjectId:focus.dataset.atlasFocus, activeWorkspaceView:'proposal' });
+        const layer = atlasV2ObjectLayers.get(focus.dataset.atlasFocus);
+        if (layer) { map.fitBounds(layer.getBounds(), { padding:[40, 40], maxZoom:18 }); layer.openPopup(); }
+      }
+      const run = event.target.closest('[data-atlas-run]');
+      if (run) await atlasV2RunAndShow(run.dataset.atlasRun, run.dataset.atlasEngine);
+    });
     document.getElementById('atlas-v2-new').onclick = () => { const name = projectName.value.trim(); if (!name) return atlasV2SetMessage('Indica o nome do projeto.'); atlasV2Start('parcel', { name }); };
     document.getElementById('atlas-v2-open').onclick = async () => { try { showChoices(await store.listProjects(), projectSelector, document.getElementById('atlas-v2-project-choice')); } catch (error) { atlasV2SetMessage(error.message); } };
-    document.getElementById('atlas-v2-project-load').onclick = async () => { if (projectSelector.value) await store.openProject(projectSelector.value); };
-    document.getElementById('atlas-v2-scenario').onclick = async () => { const name = scenarioName.value.trim(); if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); if (!name) return atlasV2SetMessage('Indica o nome do cenário.'); await store.createScenario(name); };
+    document.getElementById('atlas-v2-project-load').onclick = async () => { if (projectSelector.value) { await store.openProject(projectSelector.value); store.setUiState({ activeWorkspaceView:'proposal', contextPanelOpen:false }); } };
+    document.getElementById('atlas-v2-scenario').onclick = async () => { const name = scenarioName.value.trim(); if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro uma área de trabalho.'); if (!name) return atlasV2SetMessage('Indica o nome da alternativa.'); await store.createScenario(name); store.setUiState({ activeWorkspaceView:'proposal', contextPanelOpen:false }); };
     document.getElementById('atlas-v2-scenario-open').onclick = async () => { if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); showChoices(await store.listScenarios(), scenarioSelector, document.getElementById('atlas-v2-scenario-choice')); };
-    document.getElementById('atlas-v2-scenario-load').onclick = async () => { if (scenarioSelector.value) await store.openScenario(scenarioSelector.value); };
-    document.getElementById('atlas-v2-scenario-copy').onclick = async () => { const name = scenarioName.value.trim(); if (!name) return atlasV2SetMessage('Indica o nome do cenário duplicado.'); await store.duplicateScenario(name); };
+    document.getElementById('atlas-v2-scenario-load').onclick = async () => { if (scenarioSelector.value) { await store.openScenario(scenarioSelector.value); store.setUiState({ activeWorkspaceView:'proposal', contextPanelOpen:false }); } };
+    document.getElementById('atlas-v2-scenario-copy').onclick = async () => { const name = scenarioName.value.trim(); if (!name) return atlasV2SetMessage('Indica o nome da alternativa duplicada.'); await store.duplicateScenario(name); store.setUiState({ activeWorkspaceView:'proposal', contextPanelOpen:false }); };
     document.getElementById('atlas-v2-object').onclick = () => { const name = objectName.value.trim(); if (!store.currentProject) return atlasV2SetMessage('Cria ou abre primeiro um projeto.'); if (!name) return atlasV2SetMessage('Indica o nome do objeto.'); try { atlasV2Start('object', { type:typeInput.value, name, parameters:JSON.parse(parametersInput.value || '{}') }); } catch (_) { atlasV2SetMessage('Os parâmetros avançados não contêm JSON válido.'); } };
     document.getElementById('atlas-v2-finish').onclick = atlasV2Finish;
     atlasV2Render();
@@ -627,6 +708,9 @@
     }
   });
   map.addControl(new CharcaControl());
+  ['btn-charca', 'btn-terraplanagem', 'btn-agricultura'].forEach((id) => {
+    document.getElementById(id).addEventListener('click', () => window.projectStore.setUiState({ sidebarCollapsed:false, activeWorkspaceView:'explore' }));
+  });
 
   document.getElementById('btn-toggle-satelite-3d').addEventListener('click', () => {
     aplicarModoSatelite3D(!vista3DModoSatelite);
@@ -1441,7 +1525,7 @@
       handleCliqueAgricultura(lat, lng);
       return;
     }
-    window.projectStore.setUiState({ sidebarCollapsed: false });
+    window.projectStore.setUiState({ sidebarCollapsed: false, activeWorkspaceView:'explore' });
     if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lng]).addTo(map);
 
