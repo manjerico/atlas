@@ -186,17 +186,33 @@
   #legenda-ran-ren .swatch-color{width:11px; height:11px; border-radius:2px; flex-shrink:0; border:1px solid rgba(255,255,255,0.4);}
 
   #modal-3d{
-    display:none; position:fixed; inset:0; background:#0c1210; z-index:1000;
+    display:none; position:fixed; inset:0; background:#101714; z-index:1000;
     flex-direction:column;
   }
   #modal-3d.aberto{display:flex;}
   #modal-3d-topbar{
-    display:flex; align-items:center; gap:14px; padding:10px 16px;
-    background:var(--teal-dark); color:var(--paper); font-family:var(--font-mono); font-size:0.8rem;
+    display:flex; align-items:center; gap:12px; padding:11px 14px;
+    background:rgba(17,35,29,.96); color:var(--paper); border-bottom:1px solid rgba(255,255,255,.1);
   }
-  #modal-3d-topbar span:first-child{font-weight:600;}
-  #info-3d{flex:1; color:#cfe3dc;}
-  #canvas-3d-container{flex:1; position:relative;}
+  .terrain-3d-heading{display:flex;align-items:center;gap:10px;min-width:0;}
+  .terrain-3d-mark{width:32px;height:32px;border-radius:9px;background:#eaf3ef;color:var(--teal-dark);display:grid;place-items:center;font-family:var(--font-display);font-weight:700;}
+  .terrain-3d-title{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .terrain-3d-subtitle{font-size:.65rem;color:#a9c2b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #info-3d{flex:1; color:#cfe3dc;font:400 .7rem var(--font-mono);text-align:center;}
+  #canvas-3d-container{flex:1; position:relative;overflow:hidden;}
+  #terrain-3d-loading{position:absolute;inset:0;z-index:3;display:none;place-items:center;background:rgba(12,18,16,.74);backdrop-filter:blur(4px);color:#fff;}
+  #terrain-3d-loading.is-visible{display:grid;}
+  .terrain-3d-loading-card{max-width:330px;text-align:center;padding:18px 22px;border:1px solid rgba(255,255,255,.14);border-radius:15px;background:rgba(24,48,40,.92);box-shadow:0 18px 45px rgba(0,0,0,.25);}
+  .terrain-3d-loading-card strong{display:block;font-family:var(--font-display);font-size:1rem;margin-bottom:5px;}
+  .terrain-3d-loading-card span{font-size:.72rem;color:#bed1ca;line-height:1.45;}
+  #terrain-3d-stats{position:absolute;z-index:2;left:16px;right:16px;bottom:16px;display:grid;grid-template-columns:repeat(4,minmax(100px,150px));gap:8px;pointer-events:none;}
+  .terrain-stat{padding:10px 11px;border:1px solid rgba(255,255,255,.15);border-radius:11px;background:rgba(15,28,24,.82);backdrop-filter:blur(10px);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.16);}
+  .terrain-stat span{display:block;font-size:.59rem;color:#a9c2b8;text-transform:uppercase;letter-spacing:.07em;}
+  .terrain-stat strong{display:block;margin-top:3px;font:500 .8rem var(--font-mono);}
+  #terrain-3d-notice{position:absolute;z-index:2;right:16px;top:16px;max-width:310px;padding:9px 11px;border-radius:10px;background:rgba(15,28,24,.78);color:#d5e3dd;font-size:.64rem;line-height:1.4;pointer-events:none;backdrop-filter:blur(8px);}
+  .terrain-view-switch{display:flex;gap:4px;padding:3px;border-radius:10px;background:rgba(255,255,255,.08);}
+  .terrain-view-switch .charca-btn{box-shadow:none;border-color:transparent;background:transparent;color:#bed1ca;padding:7px 9px;}
+  .terrain-view-switch .charca-btn.ativo{background:#fff;color:var(--teal-dark);}
 
   @media (max-width: 1080px){
     header{gap:9px;padding:8px 12px;}
@@ -214,6 +230,9 @@
     .workspace-head{padding:14px;}.workspace-scroll{padding:11px;}
     .leaflet-control-layers-expanded{max-width:190px;font-size:.72rem;}
     .map-legend{max-width:calc(100vw - 32px);}.map-legend .charca-btn{font-size:.7rem;padding:7px 8px;}
+    #modal-3d-topbar{flex-wrap:wrap;}.terrain-3d-heading{flex:1;}#info-3d{order:3;width:100%;text-align:left;}
+    #terrain-3d-stats{grid-template-columns:repeat(2,minmax(0,1fr));left:8px;right:8px;bottom:8px;}
+    #terrain-3d-notice{display:none;}
   }
 </style>
 </head>
@@ -323,12 +342,16 @@
   </main>
   <div id="modal-3d">
     <div id="modal-3d-topbar">
-      <span>Vista 3D do terreno (zona com dados LiDAR)</span>
-      <span id="info-3d">Clica no terreno para ver a coordenada</span>
-      <button id="btn-toggle-satelite-3d" class="charca-btn">🛰️ Ver satélite</button>
-      <button id="btn-fechar-3d" class="charca-btn">✕ Fechar</button>
+      <div class="terrain-3d-heading"><span class="terrain-3d-mark">A</span><div><div id="terrain-3d-title" class="terrain-3d-title">Terreno 3D</div><div id="terrain-3d-subtitle" class="terrain-3d-subtitle">Modelo indicativo baseado no MDT disponível</div></div></div>
+      <span id="info-3d">Arrasta para orbitar · roda para aproximar</span>
+      <div class="terrain-view-switch" aria-label="Vista do terreno"><button id="btn-fechar-3d" class="charca-btn" type="button">Mapa 2D</button><button class="charca-btn ativo" type="button" aria-current="page">Terreno 3D</button></div>
+      <button id="btn-toggle-satelite-3d" class="charca-btn" type="button">Ver por altitude</button>
     </div>
-    <div id="canvas-3d-container"></div>
+    <div id="canvas-3d-container">
+      <div id="terrain-3d-loading"><div class="terrain-3d-loading-card"><strong>A preparar o terreno</strong><span>A recortar o MDT ao projeto e a construir a vista tridimensional.</span></div></div>
+      <div id="terrain-3d-notice">Indicação para estudo preliminar. Esta visualização não substitui levantamento topográfico ou validação profissional.</div>
+      <div id="terrain-3d-stats" aria-label="Resumo do terreno"></div>
+    </div>
   </div>
 </div>
 
@@ -435,6 +458,7 @@
       const layer = L.geoJSON(object.geometry, { style: { color: store.uiState.selectedObjectId === object.id ? '#b85f35' : '#2f6f62', weight:3, fillOpacity:.12 } }).bindPopup(`<strong>${atlasV2Escape(object.name)}</strong><br><span style="color:#64706a">${atlasV2Escape(atlasV2TypeLabels[object.type] || object.type)}</span><div class="map-popup-actions">${simulate}${refresh}<button data-atlas-v2-redraw="${object.id}">Redesenhar</button>${remove}</div>`).addTo(atlasV2Layers);
       atlasV2ObjectLayers.set(object.id, layer);
     });
+    if (dados3D && dados3D.project_id) atualizarSelecaoObjetos3D();
   }
   window.projectStore.subscribe(atlasV2Render);
   async function atlasV2RunAndShow(objectId, engineType) {
@@ -684,6 +708,7 @@
   let charcaLayers = [];
   let mancheOverlay = null;
   let dados3D = null;
+  let dados3DKey = null;
   let ultimaCharcaResultado = null;
   let ultimaTerraplanagemResultado = null;
   let parcelasLayer3D = null;
@@ -692,7 +717,8 @@
   let cena3D, camera3D, renderer3D, controlos3D, malha3D;
   let animando3D = false;
   let texturaOrto3D = null;
-  let vista3DModoSatelite = false;
+  let vista3DModoSatelite = true;
+  const objetos3DPorId = new Map();
   let zonaProtecaoLayer = null;
 
   const CharcaControl = L.Control.extend({
@@ -719,6 +745,7 @@
   });
   document.getElementById('btn-fechar-3d').addEventListener('click', () => {
     document.getElementById('modal-3d').classList.remove('aberto');
+    window.projectStore.setUiState({ terrainViewOpen:false });
   });
 
   document.getElementById('btn-charca').addEventListener('click', () => {
@@ -1241,7 +1268,7 @@
 
   function carregarTexturaOrtoSatelite3D() {
     if (!dados3D || !malha3D) return;
-    const { xmin, ymin, xmax, ymax } = dados3D.bbox_3763;
+    const { xmin, ymin, xmax, ymax } = dados3D.orthophoto_bbox || dados3D.bbox_3763;
 
     const params = new URLSearchParams({
       bbox: `${xmin},${ymin},${xmax},${ymax}`,
@@ -1251,18 +1278,24 @@
     const url = `${ORTOS_URL}/export?${params.toString()}`;
 
     const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
     loader.load(url, (textura) => {
       texturaOrto3D = textura;
+      texturaOrto3D.encoding = THREE.sRGBEncoding;
       if (vista3DModoSatelite) aplicarModoSatelite3D(true);
     }, undefined, () => {
       texturaOrto3D = null;
+      vista3DModoSatelite = false;
+      aplicarModoSatelite3D(false);
+      document.getElementById('info-3d').textContent = 'Imagem aérea indisponível · vista por altitude ativa';
     });
   }
 
   function aplicarModoSatelite3D(usarSatelite) {
     if (!malha3D) return;
     vista3DModoSatelite = usarSatelite;
-    if (usarSatelite && texturaOrto3D) {
+    const sateliteAtivo = usarSatelite && texturaOrto3D;
+    if (sateliteAtivo) {
       malha3D.material.map = texturaOrto3D;
       malha3D.material.vertexColors = false;
       malha3D.material.color.set(0xffffff);
@@ -1272,7 +1305,10 @@
     }
     malha3D.material.needsUpdate = true;
     const btn = document.getElementById('btn-toggle-satelite-3d');
-    if (btn) btn.textContent = usarSatelite ? '⛰️ Ver por altitude' : '🛰️ Ver satélite';
+    if (btn) btn.textContent = sateliteAtivo ? 'Ver por altitude' : 'Ver imagem aérea';
+    if (dados3D && dados3D.project_id) {
+      window.projectStore.setUiState({ terrainBaseMode: usarSatelite ? 'satellite' : 'altitude' });
+    }
   }
 
   async function carregarParcelas3D() {
@@ -1341,6 +1377,99 @@
     }
     parcelasLayer3D = grupo;
     cena3D.add(parcelasLayer3D);
+  }
+
+  function corObjeto3D(tipo) {
+    return ({ platform:0xeaa46d, pond:0x4aa3df, access:0xd8c087, crop_area:0x75b56b, zone:0x70a99a }[tipo] || 0xe9eee9);
+  }
+
+  function limparObjetosProjeto3D() {
+    objetos3DPorId.clear();
+    if (!parcelasLayer3D) return;
+    cena3D.remove(parcelasLayer3D);
+    parcelasLayer3D.traverse((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    });
+    parcelasLayer3D = null;
+  }
+
+  function carregarObjetosProjeto3D() {
+    limparObjetosProjeto3D();
+    if (!dados3D || !dados3D.overlays) return;
+    const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
+    const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
+    const grupo = new THREE.Group();
+
+    dados3D.overlays.forEach((overlay) => {
+      const isParcel = overlay.type === 'base_parcel';
+      const baseColor = isParcel ? 0xffffff : corObjeto3D(overlay.type);
+      const interactive = [];
+      (overlay.geometry.paths || []).forEach((path) => {
+        const valid = path.filter((point) => point.elevation != null);
+        if (valid.length < 2) return;
+        const points = valid.map((point) => new THREE.Vector3(
+          point.x - largura / 2,
+          (point.elevation - dados3D.elevacao_min) * 1.6 + (isParcel ? 2.6 : 2.1),
+          point.z - profundidade / 2
+        ));
+        const outline = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(points),
+          new THREE.LineBasicMaterial({ color:baseColor, transparent:true, opacity:isParcel ? .95 : 1 })
+        );
+        outline.userData = { objectId:isParcel ? null : overlay.id, objectName:overlay.name, baseColor };
+        grupo.add(outline);
+        if (!isParcel) interactive.push(outline);
+
+        if (!isParcel && overlay.geometry.type.includes('Polygon') && valid.length >= 4) {
+          const ring = valid.slice(0, -1);
+          const shape = new THREE.Shape();
+          ring.forEach((point, index) => {
+            const x = point.x - largura / 2, z = point.z - profundidade / 2;
+            if (index === 0) shape.moveTo(x, z); else shape.lineTo(x, z);
+          });
+          const averageElevation = ring.reduce((sum, point) => sum + point.elevation, 0) / ring.length;
+          const fill = new THREE.Mesh(
+            new THREE.ShapeGeometry(shape),
+            new THREE.MeshBasicMaterial({ color:baseColor, transparent:true, opacity:.25, side:THREE.DoubleSide, depthWrite:false })
+          );
+          fill.rotation.x = Math.PI / 2;
+          fill.position.y = (averageElevation - dados3D.elevacao_min) * 1.6 + 1.8;
+          fill.userData = { objectId:overlay.id, objectName:overlay.name, baseColor };
+          grupo.add(fill);
+          interactive.push(fill);
+        }
+      });
+      if (!isParcel && interactive.length) objetos3DPorId.set(overlay.id, interactive);
+    });
+
+    parcelasLayer3D = grupo;
+    cena3D.add(parcelasLayer3D);
+    atualizarSelecaoObjetos3D();
+  }
+
+  function atualizarSelecaoObjetos3D() {
+    const selectedId = window.projectStore.uiState.selectedObjectId;
+    objetos3DPorId.forEach((items, objectId) => {
+      items.forEach((item) => {
+        if (!item.material || !item.material.color) return;
+        item.material.color.setHex(objectId === selectedId ? 0xffd08a : item.userData.baseColor);
+        if (item.material.opacity != null && item.type === 'Mesh') item.material.opacity = objectId === selectedId ? .48 : .25;
+      });
+    });
+  }
+
+  function renderResumoTerreno3D() {
+    const stats = document.getElementById('terrain-3d-stats');
+    if (!dados3D) { stats.innerHTML = ''; return; }
+    const desnivel = dados3D.elevacao_max - dados3D.elevacao_min;
+    const source = dados3D.source || {};
+    stats.innerHTML = [
+      ['Cota mínima', `${dados3D.elevacao_min.toFixed(1)} m`],
+      ['Cota máxima', `${dados3D.elevacao_max.toFixed(1)} m`],
+      ['Desnível', `${desnivel.toFixed(1)} m`],
+      ['Resolução visual', `${Number(source.display_resolution_m || dados3D.pixel_m).toFixed(0)} m`],
+    ].map(([label, value]) => `<div class="terrain-stat"><span>${label}</span><strong>${value}</strong></div>`).join('');
   }
 
   function construirMalhaDeCelulas(celulas, tamanhoCelula, elevacaoM, corHex) {
@@ -1413,24 +1542,35 @@
     const modal = document.getElementById('modal-3d');
     modal.classList.add('aberto');
     const infoEl = document.getElementById('info-3d');
+    const loadingEl = document.getElementById('terrain-3d-loading');
+    const store = window.projectStore;
+    store.setUiState({ terrainViewOpen:true });
 
     if (!cena3D) {
       cena3D = new THREE.Scene();
-      cena3D.background = new THREE.Color(0x0c1210);
+      cena3D.background = new THREE.Color(0x9fb4bd);
+      cena3D.fog = new THREE.Fog(0x9fb4bd, 900, 2800);
       const container = document.getElementById('canvas-3d-container');
       camera3D = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
       renderer3D = new THREE.WebGLRenderer({ antialias: true });
+      renderer3D.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer3D.setSize(container.clientWidth, container.clientHeight);
+      renderer3D.outputEncoding = THREE.sRGBEncoding;
+      renderer3D.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer3D.toneMappingExposure = .78;
       container.appendChild(renderer3D.domElement);
 
-      const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6);
+      const luzAmbiente = new THREE.HemisphereLight(0xe8f2f4, 0x35443b, .55);
       cena3D.add(luzAmbiente);
-      const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.8);
-      luzDirecional.position.set(1, 1.5, 1);
+      const luzDirecional = new THREE.DirectionalLight(0xfff6df, .5);
+      luzDirecional.position.set(-1, 1.8, 1.2);
       cena3D.add(luzDirecional);
 
       controlos3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
       controlos3D.enableDamping = true;
+      controlos3D.dampingFactor = .07;
+      controlos3D.maxPolarAngle = Math.PI * .49;
+      controlos3D.screenSpacePanning = true;
 
       window.addEventListener('resize', () => {
         if (!modal.classList.contains('aberto')) return;
@@ -1448,6 +1588,15 @@
         );
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(mouse, camera3D);
+        if (parcelasLayer3D && dados3D && dados3D.project_id) {
+          const objectHit = raycaster.intersectObject(parcelasLayer3D, true).find((hit) => hit.object.userData.objectId);
+          if (objectHit) {
+            const objectId = objectHit.object.userData.objectId;
+            store.setUiState({ selectedObjectId:objectId });
+            infoEl.textContent = `${objectHit.object.userData.objectName} selecionado · a seleção será mantida no mapa 2D`;
+            return;
+          }
+        }
         const intersecoes = raycaster.intersectObject(malha3D);
         if (intersecoes.length > 0) {
           const p = intersecoes[0].point;
@@ -1456,23 +1605,40 @@
           const col = (p.x + largura / 2) / dados3D.pixel_m;
           const row = (p.z + profundidade / 2) / dados3D.pixel_m;
           const elevReal = dados3D.elevacao_min + p.y / 1.6;
-          infoEl.textContent = `Célula (linha ${row.toFixed(0)}, coluna ${col.toFixed(0)}) — elevação ≈ ${elevReal.toFixed(1)}m`;
+          infoEl.textContent = `Elevação indicativa ≈ ${elevReal.toFixed(1)} m · célula ${row.toFixed(0)}, ${col.toFixed(0)}`;
         }
       });
     }
 
-    if (!dados3D) {
-      infoEl.textContent = 'A carregar terreno…';
-      try {
+    infoEl.textContent = 'A preparar o recorte do terreno…';
+    loadingEl.classList.add('is-visible');
+    loadingEl.querySelector('strong').textContent = 'A preparar o terreno';
+    loadingEl.querySelector('span').textContent = 'A recortar o MDT ao projeto e a construir a vista tridimensional.';
+    try {
+      const nextKey = store.currentProject ? `${store.currentProject.id}:${store.activeScenarioId || 'project'}` : 'legacy';
+      if (store.currentProject) {
+        dados3D = await store.loadTerrainMesh();
+      } else if (!dados3D || dados3DKey !== 'legacy') {
         dados3D = await fetch('/api/elevacao-3d').then(r => r.json());
         if (dados3D.erro) throw new Error(dados3D.erro);
-      } catch (e) {
-        infoEl.textContent = `Erro ao carregar terreno: ${e}`;
-        return;
       }
+      if (dados3DKey !== nextKey && texturaOrto3D) {
+        texturaOrto3D.dispose();
+        texturaOrto3D = null;
+      }
+      dados3DKey = nextKey;
+    } catch (error) {
+      infoEl.textContent = 'Não foi possível preparar esta vista 3D.';
+      loadingEl.querySelector('strong').textContent = 'Terreno indisponível';
+      loadingEl.querySelector('span').textContent = error.message || String(error);
+      return;
     }
 
-    if (malha3D) cena3D.remove(malha3D);
+    if (malha3D) {
+      cena3D.remove(malha3D);
+      malha3D.geometry.dispose();
+      malha3D.material.dispose();
+    }
     malha3D = construirMalha3D(dados3D);
     const largura = (dados3D.n_cols - 1) * dados3D.pixel_m;
     const profundidade = (dados3D.n_linhas - 1) * dados3D.pixel_m;
@@ -1480,19 +1646,37 @@
     cena3D.add(malha3D);
 
     const alturaMedia = ((dados3D.elevacao_max - dados3D.elevacao_min) * 1.6) / 2;
-    camera3D.position.set(0, Math.max(largura, profundidade) * 0.55, Math.max(largura, profundidade) * 0.55);
+    camera3D.position.set(0, Math.max(largura, profundidade) * 0.72, Math.max(largura, profundidade) * 0.78);
     controlos3D.target.set(0, alturaMedia, 0);
+    controlos3D.minDistance = Math.max(18, Math.min(largura, profundidade) * .08);
+    controlos3D.maxDistance = Math.max(largura, profundidade) * 2.4;
     controlos3D.update();
 
-    infoEl.textContent = 'A carregar parcelas e sobreposições…';
-    carregarParcelas3D();
-    carregarSobreposicoesAgua3D();
+    if (dados3D.project_id) {
+      carregarObjetosProjeto3D();
+      document.getElementById('terrain-3d-title').textContent = dados3D.project_name;
+      document.getElementById('terrain-3d-subtitle').textContent = dados3D.scenario_name
+        ? `Alternativa: ${dados3D.scenario_name}`
+        : 'Projeto base · modelo indicativo';
+      vista3DModoSatelite = store.uiState.terrainBaseMode !== 'altitude';
+    } else {
+      carregarParcelas3D();
+      carregarSobreposicoesAgua3D();
+      document.getElementById('terrain-3d-title').textContent = 'Cobertura LiDAR de Silves';
+      document.getElementById('terrain-3d-subtitle').textContent = 'Vista legada · cria um projeto para recortar o terreno';
+    }
+    renderResumoTerreno3D();
     if (!texturaOrto3D) {
       carregarTexturaOrtoSatelite3D();
     } else if (vista3DModoSatelite) {
       aplicarModoSatelite3D(true);
+    } else {
+      aplicarModoSatelite3D(false);
     }
-    infoEl.textContent = 'Clica no terreno para ver a coordenada';
+    infoEl.textContent = dados3D.coverage_complete === false
+      ? 'Cobertura MDT parcial · interpreta os limites com cautela'
+      : 'Arrasta para orbitar · roda para aproximar · clica numa intervenção para selecionar';
+    loadingEl.classList.remove('is-visible');
 
     if (!animando3D) {
       animando3D = true;
