@@ -8,7 +8,13 @@
       this.scenarios = [];
       this.activeScenarioId = null;
       this.simulationResults = {};
-      this.uiState = {};
+      this.uiState = {
+        sidebarCollapsed: false,
+        activeWorkspaceView: 'explore',
+        contextPanelOpen: false,
+        objectComposerOpen: false,
+        selectedObjectId: null,
+      };
       this.lastError = null;
       this.listeners = new Set();
     }
@@ -20,6 +26,11 @@
 
     emit() {
       this.listeners.forEach((listener) => listener(this));
+    }
+
+    setUiState(patch) {
+      this.uiState = { ...this.uiState, ...patch };
+      this.emit();
     }
 
     setError(error) {
@@ -95,7 +106,10 @@
         const scenario = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenarioId}`);
         this.scenarios = [...this.scenarios.filter((item) => item.id !== scenario.id), scenario];
         this.activeScenarioId = scenario.id;
-        this.simulationResults = Object.fromEntries((await this.request(`/projects/${this.currentProject.id}/scenarios/${scenarioId}/results`)).results.map((result) => [result.scenario_object_id, result]));
+        this.simulationResults = (await this.request(`/projects/${this.currentProject.id}/scenarios/${scenarioId}/results`)).results.reduce((results, result) => {
+          results[result.scenario_object_id] = { ...(results[result.scenario_object_id] || {}), [result.engine_type]: result };
+          return results;
+        }, {});
         this.clearError(); this.emit();
         return scenario;
       } catch (error) { this.setError(error); throw error; }
@@ -172,7 +186,7 @@
       this.clearError(); this.emit();
     }
 
-    async runEarthwork(scenarioObjectId) {
+    async runSimulation(scenarioObjectId, engineType) {
       if (!this.currentProject) throw new Error('Abra ou crie primeiro um projeto.');
       try {
         const scenario = this.activeScenario;
@@ -181,12 +195,20 @@
         if (!scenarioObject) throw new Error('O objeto não existe no cenário de simulação. Crie um novo cenário na Phase 3.');
         const result = await this.request('/simulations/run', {
           method: 'POST',
-          body: JSON.stringify({ scenario_id: scenario.id, scenario_object_id: scenarioObject.id, engine_type: 'earthwork' }),
+          body: JSON.stringify({ scenario_id: scenario.id, scenario_object_id: scenarioObject.id, engine_type: engineType }),
         });
-        this.simulationResults = { ...this.simulationResults, [scenarioObject.id]: result };
+        this.simulationResults = { ...this.simulationResults, [scenarioObject.id]: { ...(this.simulationResults[scenarioObject.id] || {}), [engineType]: result } };
         this.clearError(); this.emit();
         return result;
       } catch (error) { this.setError(error); throw error; }
+    }
+
+    async runEarthwork(scenarioObjectId) {
+      return this.runSimulation(scenarioObjectId, 'earthwork');
+    }
+
+    async runCultivableArea(scenarioObjectId) {
+      return this.runSimulation(scenarioObjectId, 'cultivable_area');
     }
   }
 
