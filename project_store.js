@@ -5,11 +5,19 @@
       this.currentProject = null;
       this.baseParcel = null;
       this.objects = [];
+      this.typeRegistry = {};
       this.scenarios = [];
       this.activeScenarioId = null;
       this.simulationResults = {};
+      this.terrainView = { status: 'idle', data: null, error: null };
       this.uiState = {
         sidebarCollapsed: false,
+        activeWorkspaceView: 'explore',
+        contextPanelOpen: false,
+        objectComposerOpen: false,
+        selectedObjectId: null,
+        terrainViewOpen: false,
+        terrainBaseMode: 'satellite',
       };
       this.lastError = null;
       this.listeners = new Set();
@@ -38,6 +46,10 @@
       this.lastError = null;
     }
 
+    invalidateTerrainView() {
+      this.terrainView = { status: 'idle', data: null, error: null };
+    }
+
     async request(path, options = {}) {
       const response = await fetch(`/api/v2${path}`, {
         ...options,
@@ -58,6 +70,7 @@
         this.baseParcel = project.base_parcel;
         this.objects = [];
         this.scenarios = []; this.activeScenarioId = null; this.simulationResults = {};
+        this.invalidateTerrainView();
         this.clearError(); this.emit();
         return project;
       } catch (error) { this.setError(error); throw error; }
@@ -73,12 +86,21 @@
         this.baseParcel = project.base_parcel;
         this.objects = objects.objects;
         this.scenarios = scenarios.scenarios; this.activeScenarioId = null; this.simulationResults = {};
+        this.invalidateTerrainView();
         this.clearError(); this.emit();
         return project;
       } catch (error) { this.setError(error); throw error; }
     }
 
     async listProjects() { return (await this.request('/projects')).projects; }
+
+    async loadTypeRegistry() {
+      try {
+        this.typeRegistry = await this.request('/types');
+        this.clearError(); this.emit();
+        return this.typeRegistry;
+      } catch (error) { this.setError(error); throw error; }
+    }
 
     async listScenarios() {
       if (!this.currentProject) return [];
@@ -92,6 +114,7 @@
         });
         this.scenarios = [...this.scenarios, scenario];
         this.activeScenarioId = scenario.id;
+        this.invalidateTerrainView();
         this.clearError(); this.emit();
         return scenario;
       } catch (error) { this.setError(error); throw error; }
@@ -106,6 +129,7 @@
           results[result.scenario_object_id] = { ...(results[result.scenario_object_id] || {}), [result.engine_type]: result };
           return results;
         }, {});
+        this.invalidateTerrainView();
         this.clearError(); this.emit();
         return scenario;
       } catch (error) { this.setError(error); throw error; }
@@ -117,7 +141,7 @@
       const scenario = this.activeScenario;
       if (!scenario) throw new Error('Abra primeiro um cenário.');
       const duplicate = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/duplicate`, { method: 'POST', body: JSON.stringify({ name }) });
-      this.scenarios = [...this.scenarios, duplicate]; this.activeScenarioId = duplicate.id; this.simulationResults = {}; this.emit();
+      this.scenarios = [...this.scenarios, duplicate]; this.activeScenarioId = duplicate.id; this.simulationResults = {}; this.invalidateTerrainView(); this.emit();
       return duplicate;
     }
 
@@ -126,7 +150,7 @@
       if (!scenario) throw new Error('Abra primeiro um cenário.');
       const object = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/objects/${scenarioObjectId}/update-from-project`, { method: 'POST' });
       scenario.objects = scenario.objects.map((item) => item.id === object.id ? object : item);
-      this.emit(); return object;
+      this.invalidateTerrainView(); this.emit(); return object;
     }
 
     async updateScenarioObject(scenarioObjectId, object) {
@@ -136,14 +160,14 @@
         method: 'PUT', body: JSON.stringify(object),
       });
       scenario.objects = scenario.objects.map((item) => item.id === scenarioObjectId ? result.object : item);
-      this.clearError(); this.emit(); return result;
+      this.invalidateTerrainView(); this.clearError(); this.emit(); return result;
     }
 
     async saveScenarioObject(object) {
       const scenario = this.activeScenario;
       if (!scenario) throw new Error('Abra primeiro um cenário.');
       const result = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/objects`, { method: 'POST', body: JSON.stringify(object) });
-      scenario.objects = [...scenario.objects, result.object]; this.clearError(); this.emit(); return result;
+      scenario.objects = [...scenario.objects, result.object]; this.invalidateTerrainView(); this.clearError(); this.emit(); return result;
     }
 
     async deleteScenarioObject(scenarioObjectId) {
@@ -152,7 +176,7 @@
       await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/objects/${scenarioObjectId}`, { method: 'DELETE' });
       scenario.objects = scenario.objects.filter((item) => item.id !== scenarioObjectId);
       const nextResults = { ...this.simulationResults }; delete nextResults[scenarioObjectId]; this.simulationResults = nextResults;
-      this.clearError(); this.emit();
+      this.invalidateTerrainView(); this.clearError(); this.emit();
     }
 
     async saveObject(object) {
@@ -162,7 +186,7 @@
           method: 'POST', body: JSON.stringify(object),
         });
         this.objects = [...this.objects, result.object];
-        this.clearError(); this.emit();
+        this.invalidateTerrainView(); this.clearError(); this.emit();
         return result;
       } catch (error) { this.setError(error); throw error; }
     }
@@ -172,14 +196,31 @@
         method: 'PUT', body: JSON.stringify(object),
       });
       this.objects = this.objects.map((item) => item.id === objectId ? result.object : item);
-      this.clearError(); this.emit();
+      this.invalidateTerrainView(); this.clearError(); this.emit();
       return result;
     }
 
     async deleteObject(objectId) {
       await this.request(`/projects/${this.currentProject.id}/objects/${objectId}`, { method: 'DELETE' });
       this.objects = this.objects.filter((item) => item.id !== objectId);
-      this.clearError(); this.emit();
+      this.invalidateTerrainView(); this.clearError(); this.emit();
+    }
+
+    async loadTerrainMesh() {
+      if (!this.currentProject) throw new Error('Cria ou abre uma área de trabalho para visualizar o terreno em 3D.');
+      this.terrainView = { status: 'loading', data: null, error: null };
+      this.emit();
+      try {
+        const query = this.activeScenarioId ? `?scenario_id=${encodeURIComponent(this.activeScenarioId)}` : '';
+        const data = await this.request(`/projects/${this.currentProject.id}/terrain/mesh${query}`);
+        this.terrainView = { status: 'ready', data, error: null };
+        this.clearError(); this.emit();
+        return data;
+      } catch (error) {
+        this.terrainView = { status: 'error', data: null, error: error.message };
+        this.setError(error);
+        throw error;
+      }
     }
 
     async runSimulation(scenarioObjectId, engineType) {
