@@ -172,6 +172,57 @@ class WorkspaceApiTests(unittest.TestCase):
         results = self.client.get(f"/api/v2/projects/{project['id']}/scenarios/{scenario['id']}/results").get_json()["results"]
         self.assertEqual({result["engine_type"] for result in results}, {"solar_potential", "water_context"})
 
+    def test_project_terrain_mesh_is_bounded_and_project_scoped(self):
+        lat, lon = 37.357448, -8.308065
+        parcel = {
+            "geometry": {"type": "Polygon", "coordinates": [[[lon - .002, lat - .002], [lon + .002, lat - .002], [lon + .002, lat + .002], [lon - .002, lat + .002], [lon - .002, lat - .002]]]},
+            "crs": "EPSG:4326",
+        }
+        project = self.client.post("/api/v2/projects", json={"name": "Terreno 3D", "base_parcel": parcel}).get_json()
+        geometry = {"type": "Polygon", "coordinates": [[[lon - .0005, lat - .0005], [lon + .0005, lat - .0005], [lon, lat + .0005], [lon - .0005, lat - .0005]]]}
+        project_object = self.client.post(
+            f"/api/v2/projects/{project['id']}/objects",
+            json={"type": "platform", "name": "Plataforma", "geometry": geometry, "parameters": {}},
+        ).get_json()["object"]
+
+        response = self.client.get(f"/api/v2/projects/{project['id']}/terrain/mesh")
+        self.assertEqual(response.status_code, 200)
+        mesh = response.get_json()
+        self.assertLessEqual(max(mesh["n_linhas"], mesh["n_cols"]), 180)
+        self.assertGreater(mesh["elevacao_max"], mesh["elevacao_min"])
+        self.assertGreater(mesh["bbox_3763"]["xmin"], 100000)
+        self.assertGreater(mesh["bbox_3763"]["ymin"], 0)
+        self.assertLess(mesh["orthophoto_bbox"]["xmin"], 0)
+        self.assertLess(mesh["orthophoto_bbox"]["ymin"], 0)
+        self.assertEqual(mesh["source"]["native_resolution_m"], 2.0)
+        self.assertTrue(mesh["source"]["limitations"])
+        self.assertEqual({overlay["id"] for overlay in mesh["overlays"]}, {project["base_parcel"]["id"], project_object["id"]})
+        projected = next(overlay for overlay in mesh["overlays"] if overlay["id"] == project_object["id"])
+        self.assertTrue(all(point["elevation"] is not None for point in projected["geometry"]["paths"][0]))
+
+    def test_scenario_terrain_mesh_uses_scenario_object_identity(self):
+        lat, lon = 37.357448, -8.308065
+        parcel = {
+            "geometry": {"type": "Polygon", "coordinates": [[[lon - .002, lat - .002], [lon + .002, lat - .002], [lon + .002, lat + .002], [lon - .002, lat + .002], [lon - .002, lat - .002]]]},
+            "crs": "EPSG:4326",
+        }
+        project = self.client.post("/api/v2/projects", json={"name": "Cenário 3D", "base_parcel": parcel}).get_json()
+        geometry = {"type": "Polygon", "coordinates": [[[lon - .0005, lat - .0005], [lon + .0005, lat - .0005], [lon, lat + .0005], [lon - .0005, lat - .0005]]]}
+        project_object = self.client.post(
+            f"/api/v2/projects/{project['id']}/objects",
+            json={"type": "platform", "name": "Plataforma", "geometry": geometry, "parameters": {}},
+        ).get_json()["object"]
+        scenario = self.client.post(f"/api/v2/projects/{project['id']}/scenarios", json={"name": "Alternativa 3D"}).get_json()
+        scenario_object = scenario["objects"][0]
+
+        response = self.client.get(f"/api/v2/projects/{project['id']}/terrain/mesh?scenario_id={scenario['id']}")
+        self.assertEqual(response.status_code, 200)
+        mesh = response.get_json()
+        overlay_ids = {overlay["id"] for overlay in mesh["overlays"]}
+        self.assertIn(scenario_object["id"], overlay_ids)
+        self.assertNotIn(project_object["id"], overlay_ids)
+        self.assertEqual(mesh["scenario_id"], scenario["id"])
+
     def test_scenario_snapshot_survives_project_object_deletion(self):
         project = self.create_project()
         geometry = {"type": "Polygon", "coordinates": [[[1, 1], [4, 1], [1, 4], [1, 1]]]}
