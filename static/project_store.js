@@ -11,6 +11,8 @@
       this.simulationResults = {};
       this.terrainView = { status: 'idle', data: null, error: null };
       this.planningProposal = { status: 'idle', preview: null, error: null };
+      this.comparison = { status: 'idle', data: null, error: null };
+      this.terrainSuitability = { status: 'idle', data: null, error: null };
       this.uiState = {
         sidebarCollapsed: false,
         activeWorkspaceView: 'explore',
@@ -29,6 +31,7 @@
           access_width_m: 3, include_platform: true, include_access: true,
           center: null,
         },
+        suitabilityVisible: false,
       };
       this.lastError = null;
       this.listeners = new Set();
@@ -65,6 +68,15 @@
       this.planningProposal = { status: 'idle', preview: null, error: null };
     }
 
+    invalidateComparison() {
+      this.comparison = { status: 'idle', data: null, error: null };
+    }
+
+    resetDecisionSupport() {
+      this.invalidateComparison();
+      this.terrainSuitability = { status: 'idle', data: null, error: null };
+    }
+
     async request(path, options = {}) {
       const response = await fetch(`/api/v2${path}`, {
         ...options,
@@ -74,6 +86,38 @@
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Erro inesperado no Atlas V2.');
       return body;
+    }
+
+    async requestBlob(path, options = {}) {
+      const response = await fetch(`/api/v2${path}`, options);
+      if (!response.ok) {
+        let message = 'Não foi possível preparar o ficheiro.';
+        try { message = (await response.json()).error || message; } catch (_) { /* resposta não JSON */ }
+        throw new Error(message);
+      }
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plain = disposition.match(/filename="?([^";]+)"?/i);
+      return {
+        blob: await response.blob(),
+        filename: encoded ? decodeURIComponent(encoded[1]) : plain ? plain[1] : 'atlas-export',
+      };
+    }
+
+    async downloadScenarioImage(view, options = {}) {
+      if (!this.currentProject || !this.activeScenario) throw new Error('Abre primeiro uma alternativa.');
+      try {
+        const params = new URLSearchParams({ view });
+        if (Array.isArray(options.bbox) && options.bbox.length === 4) params.set('bbox', options.bbox.join(','));
+        return await this.requestBlob(`/projects/${this.currentProject.id}/scenarios/${this.activeScenario.id}/exports/image?${params.toString()}`);
+      } catch (error) { this.setError(error); throw error; }
+    }
+
+    async downloadScenarioReport(level = 'simple') {
+      if (!this.currentProject || !this.activeScenario) throw new Error('Abre primeiro uma alternativa.');
+      try {
+        return await this.requestBlob(`/projects/${this.currentProject.id}/scenarios/${this.activeScenario.id}/exports/report?level=${encodeURIComponent(level)}`);
+      } catch (error) { this.setError(error); throw error; }
     }
 
     async createProject(name, baseParcel) {
@@ -87,6 +131,7 @@
         this.scenarios = []; this.activeScenarioId = null; this.simulationResults = {};
         this.invalidateTerrainView();
         this.resetPlanningProposal();
+        this.resetDecisionSupport();
         this.clearError(); this.emit();
         return project;
       } catch (error) { this.setError(error); throw error; }
@@ -104,6 +149,7 @@
         this.scenarios = scenarios.scenarios; this.activeScenarioId = null; this.simulationResults = {};
         this.invalidateTerrainView();
         this.resetPlanningProposal();
+        this.resetDecisionSupport();
         this.clearError(); this.emit();
         return project;
       } catch (error) { this.setError(error); throw error; }
@@ -133,6 +179,7 @@
         this.activeScenarioId = scenario.id;
         this.invalidateTerrainView();
         this.resetPlanningProposal();
+        this.invalidateComparison();
         this.clearError(); this.emit();
         return scenario;
       } catch (error) { this.setError(error); throw error; }
@@ -149,6 +196,7 @@
         }, {});
         this.invalidateTerrainView();
         this.resetPlanningProposal();
+        this.invalidateComparison();
         this.clearError(); this.emit();
         return scenario;
       } catch (error) { this.setError(error); throw error; }
@@ -160,7 +208,7 @@
       const scenario = this.activeScenario;
       if (!scenario) throw new Error('Abra primeiro um cenário.');
       const duplicate = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/duplicate`, { method: 'POST', body: JSON.stringify({ name }) });
-      this.scenarios = [...this.scenarios, duplicate]; this.activeScenarioId = duplicate.id; this.simulationResults = {}; this.invalidateTerrainView(); this.resetPlanningProposal(); this.emit();
+      this.scenarios = [...this.scenarios, duplicate]; this.activeScenarioId = duplicate.id; this.simulationResults = {}; this.invalidateTerrainView(); this.resetPlanningProposal(); this.invalidateComparison(); this.emit();
       return duplicate;
     }
 
@@ -169,7 +217,7 @@
       if (!scenario) throw new Error('Abra primeiro um cenário.');
       const object = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/objects/${scenarioObjectId}/update-from-project`, { method: 'POST' });
       scenario.objects = scenario.objects.map((item) => item.id === object.id ? object : item);
-      this.invalidateTerrainView(); this.emit(); return object;
+      this.invalidateTerrainView(); this.invalidateComparison(); this.emit(); return object;
     }
 
     async updateScenarioObject(scenarioObjectId, object) {
@@ -179,14 +227,14 @@
         method: 'PUT', body: JSON.stringify(object),
       });
       scenario.objects = scenario.objects.map((item) => item.id === scenarioObjectId ? result.object : item);
-      this.invalidateTerrainView(); this.clearError(); this.emit(); return result;
+      this.invalidateTerrainView(); this.invalidateComparison(); this.clearError(); this.emit(); return result;
     }
 
     async saveScenarioObject(object) {
       const scenario = this.activeScenario;
       if (!scenario) throw new Error('Abra primeiro um cenário.');
       const result = await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/objects`, { method: 'POST', body: JSON.stringify(object) });
-      scenario.objects = [...scenario.objects, result.object]; this.invalidateTerrainView(); this.clearError(); this.emit(); return result;
+      scenario.objects = [...scenario.objects, result.object]; this.invalidateTerrainView(); this.invalidateComparison(); this.clearError(); this.emit(); return result;
     }
 
     async deleteScenarioObject(scenarioObjectId) {
@@ -195,7 +243,7 @@
       await this.request(`/projects/${this.currentProject.id}/scenarios/${scenario.id}/objects/${scenarioObjectId}`, { method: 'DELETE' });
       scenario.objects = scenario.objects.filter((item) => item.id !== scenarioObjectId);
       const nextResults = { ...this.simulationResults }; delete nextResults[scenarioObjectId]; this.simulationResults = nextResults;
-      this.invalidateTerrainView(); this.clearError(); this.emit();
+      this.invalidateTerrainView(); this.invalidateComparison(); this.clearError(); this.emit();
     }
 
     async saveObject(object) {
@@ -280,7 +328,7 @@
           };
         }
         this.planningProposal = { status: 'saved', preview: proposal, error: null };
-        this.invalidateTerrainView(); this.clearError(); this.emit();
+        this.invalidateTerrainView(); this.invalidateComparison(); this.clearError(); this.emit();
         return proposal;
       } catch (error) {
         this.planningProposal = { ...this.planningProposal, status: 'error', error: error.message };
@@ -300,7 +348,7 @@
           body: JSON.stringify({ scenario_id: scenario.id, scenario_object_id: scenarioObject.id, engine_type: engineType }),
         });
         this.simulationResults = { ...this.simulationResults, [scenarioObject.id]: { ...(this.simulationResults[scenarioObject.id] || {}), [engineType]: result } };
-        this.clearError(); this.emit();
+        this.invalidateComparison(); this.clearError(); this.emit();
         return result;
       } catch (error) { this.setError(error); throw error; }
     }
@@ -311,6 +359,38 @@
 
     async runCultivableArea(scenarioObjectId) {
       return this.runSimulation(scenarioObjectId, 'cultivable_area');
+    }
+
+    async loadTerrainSuitability(objective = 'building') {
+      if (!this.currentProject) throw new Error('Abre primeiro uma área de trabalho.');
+      this.terrainSuitability = { status: 'loading', data: null, error: null };
+      this.emit();
+      try {
+        const data = await this.request(`/projects/${this.currentProject.id}/terrain/suitability?objective=${encodeURIComponent(objective)}`);
+        this.terrainSuitability = { status: 'ready', data, error: null };
+        this.clearError(); this.emit();
+        return data;
+      } catch (error) {
+        this.terrainSuitability = { status: 'error', data: null, error: error.message };
+        this.setError(error); throw error;
+      }
+    }
+
+    async compareScenarios(scenarioIds) {
+      if (!this.currentProject) throw new Error('Abre primeiro uma área de trabalho.');
+      this.comparison = { status: 'loading', data: null, error: null };
+      this.emit();
+      try {
+        const data = await this.request(`/projects/${this.currentProject.id}/comparison`, {
+          method: 'POST', body: JSON.stringify({ scenario_ids: scenarioIds }),
+        });
+        this.comparison = { status: 'ready', data, error: null };
+        this.clearError(); this.emit();
+        return data;
+      } catch (error) {
+        this.comparison = { status: 'error', data: null, error: error.message };
+        this.setError(error); throw error;
+      }
     }
   }
 

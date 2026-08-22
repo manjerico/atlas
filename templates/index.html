@@ -70,7 +70,7 @@
   .context-copy{flex:1;min-width:0;}.context-label{font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}.context-title{font-size:.79rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}.context-subtitle{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
   .context-panel{display:none;padding:12px;border-top:1px solid var(--border);background:var(--paper);}.context-panel.is-visible{display:block;}
   .context-group+.context-group{margin-top:13px;padding-top:13px;border-top:1px solid var(--border);}.context-group-title{font-size:.72rem;font-weight:600;margin-bottom:7px;}
-  .workspace-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:#e9eeeb;margin-bottom:13px;}
+  .workspace-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border-radius:12px;background:#e9eeeb;margin-bottom:13px;}
   .workspace-tab{border:0;background:transparent;color:var(--muted);border-radius:9px;padding:8px 5px;font:600 .71rem var(--font-body);cursor:pointer;white-space:nowrap;}
   .workspace-tab.is-active{background:#fff;color:var(--teal-dark);box-shadow:0 2px 8px rgba(18,43,34,.09);}
   .workspace-view{display:none;}.workspace-view.is-active{display:block;}
@@ -86,6 +86,10 @@
   .planning-elements{display:grid;gap:6px;margin-top:10px;}.planning-element{display:flex;align-items:flex-start;gap:8px;padding:9px;border:1px solid var(--border);border-radius:10px;background:#fff;}.planning-element input{margin-top:2px;}.planning-element-copy{flex:1;}.planning-element-copy strong{display:block;font-size:.73rem;}.planning-element-copy span{display:block;font-size:.65rem;color:var(--muted);line-height:1.35;margin-top:2px;}.planning-note{font-size:.65rem;line-height:1.4;color:#6e563f;background:#fff7ec;border-radius:9px;padding:8px 9px;margin-top:9px;}.planning-spinner{display:none;font-size:.7rem;color:var(--teal);margin-top:9px;}.planning-spinner.is-visible{display:block;}
   .object-list{display:grid;gap:8px;}.proposal-object{border:1px solid var(--border);border-radius:12px;background:#fff;padding:11px;}.proposal-object.is-selected{border-color:#7eaf9f;box-shadow:0 0 0 3px rgba(31,112,91,.08);}.proposal-object-head{display:flex;align-items:flex-start;gap:9px;}.object-glyph{width:28px;height:28px;border-radius:8px;background:var(--paper-2);display:grid;place-items:center;font-size:.8rem;}.proposal-object-copy{flex:1;min-width:0;}.proposal-object-name{font-size:.79rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.proposal-object-meta{font-size:.67rem;color:var(--muted);margin-top:2px;}.proposal-object .action-row{margin-top:9px;}.proposal-object .button{padding:6px 8px;font-size:.68rem;}
   .result-list{display:grid;gap:9px;}.result-card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:12px;}.result-card-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}.result-card-title{flex:1;min-width:0;}.result-card-title strong{display:block;font-size:.78rem;}.result-card-title span{display:block;color:var(--muted);font-size:.67rem;margin-top:2px;}.result-badge{font-size:.62rem;color:var(--ok);background:#e9f4ed;border-radius:999px;padding:4px 7px;white-space:nowrap;}.result-badge.is-stale{color:#8b512c;background:#faeee4;}.result-badge.is-error{color:#8a3c35;background:#f9e9e7;}.result-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}.result-metric{background:var(--paper-2);border-radius:8px;padding:7px;}.result-metric span{display:block;font-size:.6rem;color:var(--muted);}.result-metric strong{display:block;font-size:.72rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;}.result-error{font-size:.72rem;line-height:1.45;color:#7d3d36;background:#fff1ef;border-radius:9px;padding:9px;}
+  .result-context{font-size:.66rem;line-height:1.45;color:var(--muted);}.result-context ul{margin:6px 0 0;padding-left:17px;}.result-context code{font:500 .62rem var(--font-mono);word-break:break-word;}
+  .export-panel{display:none;margin-bottom:11px;padding:13px;border:1px solid #c9dbd3;border-radius:14px;background:linear-gradient(145deg,#edf6f2,#fff);}.export-panel.is-visible{display:block;}.export-panel-head{display:flex;align-items:flex-start;gap:9px}.export-panel-icon{width:31px;height:31px;border-radius:9px;background:#dcece5;color:var(--teal-dark);display:grid;place-items:center;font-size:.82rem;flex:0 0 auto}.export-panel-copy{flex:1}.export-panel-copy strong{display:block;font-size:.79rem}.export-panel-copy span{display:block;font-size:.66rem;color:var(--muted);line-height:1.4;margin-top:3px}.export-groups{display:grid;gap:8px;margin-top:10px}.export-group-label{font-size:.61rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px}.export-panel .action-row{margin-top:0}.export-panel .button{font-size:.68rem;padding:7px 8px}.export-note{font-size:.62rem;line-height:1.4;color:#6e563f;margin-top:9px}
+  .comparison-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;}.comparison-list{display:grid;gap:11px;}.comparison-scenario{border:1px solid var(--border);border-radius:14px;background:#fff;overflow:hidden;}.comparison-scenario-head{padding:12px 13px;background:linear-gradient(145deg,#f1f6f3,#fff);border-bottom:1px solid var(--border);}.comparison-scenario-head strong{display:block;font-family:var(--font-display);font-size:.94rem;}.comparison-scenario-head span{display:block;font-size:.65rem;color:var(--muted);margin-top:3px;}.decision-dimensions{display:grid;gap:1px;background:var(--border);}.decision-card{padding:11px 12px;background:#fff;}.decision-card-head{display:flex;align-items:flex-start;gap:8px;}.decision-signal{width:10px;height:10px;border-radius:50%;margin-top:3px;flex:0 0 auto;box-shadow:0 0 0 3px rgba(0,0,0,.04);}.decision-signal.green{background:#3a8a5c}.decision-signal.yellow{background:#d39a35}.decision-signal.red{background:#b85143}.decision-signal.gray{background:#9aa39f}.decision-card-copy{flex:1;min-width:0;}.decision-card-title{font-size:.72rem;font-weight:600;}.decision-card-label{font-size:.62rem;color:var(--muted);margin-top:2px;}.decision-reason{font-size:.7rem;line-height:1.45;margin:8px 0 0;}.decision-data{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}.decision-data span{font-size:.61rem;color:#4e5a55;background:var(--paper-2);padding:4px 6px;border-radius:7px;}.decision-detail{font-size:.64rem;line-height:1.45;color:var(--muted);}.decision-detail strong{display:block;color:var(--ink);margin-top:6px;}.decision-summary{padding:10px 12px;border-top:1px solid var(--border);font-size:.66rem;line-height:1.45;color:var(--muted);}.comparison-disclaimer{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff7ec;color:#6e563f;font-size:.66rem;line-height:1.45;}
+  #atlas-suitability-legend{display:none;position:absolute;z-index:650;left:230px;top:12px;max-width:310px;padding:10px 11px;border-radius:11px;background:rgba(255,255,255,.94);border:1px solid var(--border);box-shadow:0 8px 24px rgba(18,43,34,.14);font-size:.65rem;color:var(--muted);backdrop-filter:blur(8px);}#atlas-suitability-legend.is-visible{display:block;}#atlas-suitability-legend strong{display:block;color:var(--ink);font-size:.72rem;margin-bottom:5px;}.suitability-key{display:flex;gap:9px;flex-wrap:wrap}.suitability-key span{display:flex;align-items:center;gap:4px}.suitability-swatch{width:9px;height:9px;border-radius:2px}.suitability-swatch.green{background:#53a76d}.suitability-swatch.yellow{background:#d9a644}.suitability-swatch.red{background:#c75c4b}
   .classic-tools-note{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 10px;border-radius:10px;background:var(--paper-2);font-size:.69rem;color:var(--muted);}
   .field{display:grid;gap:5px;margin-top:8px;}
   .field label{font-size:.68rem;font-weight:600;color:var(--muted);letter-spacing:.02em;}
@@ -238,6 +242,7 @@
     #modal-3d-topbar{flex-wrap:wrap;}.terrain-3d-heading{flex:1;}#info-3d{order:3;width:100%;text-align:left;}
     #terrain-3d-stats{grid-template-columns:repeat(2,minmax(0,1fr));left:8px;right:8px;bottom:8px;}
     #terrain-3d-notice{display:none;}
+    #atlas-suitability-legend{left:8px;top:82px;max-width:220px;}
   }
 </style>
 </head>
@@ -268,6 +273,7 @@
   </header>
   <main>
     <div id="map"></div>
+    <div id="atlas-suitability-legend"><strong>Adequação do relevo para estudo</strong><div class="suitability-key"><span><i class="suitability-swatch green"></i>≤ 8%</span><span><i class="suitability-swatch yellow"></i>8–18%</span><span><i class="suitability-swatch red"></i>&gt; 18%</span></div><div id="atlas-suitability-meta" style="margin-top:6px"></div></div>
     <button id="sidebar-reopen" class="icon-button" type="button" aria-controls="panel" aria-expanded="false"><span aria-hidden="true">☰</span> Workspace</button>
     <aside id="panel" aria-label="Workspace Atlas">
       <div class="workspace-head">
@@ -307,6 +313,7 @@
         <nav class="workspace-nav" aria-label="Tarefas do Atlas">
           <button class="workspace-tab is-active" data-atlas-view="explore" type="button">Explorar</button>
           <button class="workspace-tab" data-atlas-view="proposal" type="button">Proposta</button>
+          <button class="workspace-tab" data-atlas-view="compare" type="button">Comparar</button>
           <button class="workspace-tab" data-atlas-view="results" type="button">Resultados</button>
         </nav>
         <div id="atlas-drawing-bar" class="task-card task-card-accent" style="display:none;"><div class="task-kicker">Desenho em curso</div><p>Clica no mapa para marcar os vértices.</p><div class="action-row"><button id="atlas-v2-finish" class="button button-primary" type="button">Concluir desenho</button><button id="atlas-drawing-cancel" class="button button-secondary" type="button">Cancelar</button></div></div>
@@ -366,8 +373,23 @@
 
         <section id="atlas-view-results" class="workspace-view">
           <div class="view-intro"><h3>Resultados</h3><p>As análises guardadas para a alternativa atual aparecem aqui, agrupadas pela intervenção.</p></div>
+          <div id="atlas-export-panel" class="export-panel">
+            <div class="export-panel-head"><span class="export-panel-icon" aria-hidden="true">⇩</span><div class="export-panel-copy"><strong>Partilhar esta alternativa</strong><span>Imagens limpas e relatórios com fontes, limitações e data de geração.</span></div></div>
+            <div class="export-groups">
+              <div><div class="export-group-label">Imagens</div><div class="action-row"><button class="button button-secondary" data-atlas-export-image="2d" type="button">Vista 2D</button><button class="button button-secondary" data-atlas-export-image="3d" type="button">Vista 3D</button><button class="button button-secondary" data-atlas-export-image="proposal" type="button">Proposta limpa</button></div></div>
+              <div><div class="export-group-label">Documento</div><div class="action-row"><button id="atlas-report-simple" class="button button-primary" type="button">Relatório simples PDF</button><button id="atlas-report-technical" class="button button-secondary" type="button">Gerar relatório técnico</button></div></div>
+            </div>
+            <div class="export-note">O relatório técnico só é criado quando o pedes. Todas as conclusões são preliminares e requerem validação profissional adequada.</div>
+          </div>
           <div id="atlas-results-summary" class="task-card"><h4>Ainda não existem resultados</h4><p>Vai a “Proposta”, escolhe uma intervenção e executa uma das análises disponíveis.</p></div>
           <div id="atlas-results-list" class="result-list"></div>
+        </section>
+        <section id="atlas-view-compare" class="workspace-view">
+          <div class="view-intro"><h3>Compara alternativas</h3><p>Observa diferenças explicadas. O Atlas não escolhe automaticamente uma solução nem transforma falta de dados numa avaliação favorável.</p></div>
+          <div class="comparison-actions"><button id="atlas-compare-run" class="button button-primary" type="button">Comparar todas</button><button id="atlas-suitability-toggle" class="button button-secondary" type="button">Mostrar relevo favorável</button></div>
+          <div id="atlas-compare-empty" class="task-card"><h4>São necessárias duas alternativas</h4><p>Cria uma proposta e duplica-a para estudar uma implantação diferente. Os resultados derivados não são copiados e devem ser recalculados.</p></div>
+          <div id="atlas-comparison-list" class="comparison-list"></div>
+          <div id="atlas-comparison-disclaimer" class="comparison-disclaimer" style="display:none"></div>
         </section>
         <div id="atlas-v2-message" class="workspace-message" role="status" aria-live="polite"></div>
       </div>
@@ -378,6 +400,7 @@
       <div class="terrain-3d-heading"><span class="terrain-3d-mark">A</span><div><div id="terrain-3d-title" class="terrain-3d-title">Terreno 3D</div><div id="terrain-3d-subtitle" class="terrain-3d-subtitle">Modelo indicativo baseado no MDT disponível</div></div></div>
       <span id="info-3d">Arrasta para orbitar · roda para aproximar</span>
       <div class="terrain-view-switch" aria-label="Vista do terreno"><button id="btn-fechar-3d" class="charca-btn" type="button">Mapa 2D</button><button class="charca-btn ativo" type="button" aria-current="page">Terreno 3D</button></div>
+      <button id="btn-exportar-3d" class="charca-btn" type="button">Exportar esta vista</button>
       <button id="btn-toggle-satelite-3d" class="charca-btn" type="button">Ver por altitude</button>
     </div>
     <div id="canvas-3d-container">
@@ -407,11 +430,13 @@
   let atlasV2Draft = null;
   const atlasV2Layers = L.featureGroup().addTo(map);
   const atlasV2ObjectLayers = new Map();
+  let atlasV2SuitabilityLayer = null;
+  let atlasV2SuitabilityData = null;
   const atlasV2Geometry = (points) => ({ type: 'Polygon', coordinates: [[...points, points[0]]] });
   const atlasV2Escape = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
   const atlasV2TypeLabels = { zone:'Zona de análise', building:'Edifício', platform:'Plataforma', pond:'Charca', access:'Acesso', crop_area:'Área agrícola' };
-  const atlasV2EngineLabels = { earthwork:'Terraplanagem', cultivable_area:'Área cultivável', solar_potential:'Potencial solar', water_context:'Contexto hídrico' };
-  const atlasV2EngineActions = { earthwork:'Calcular terraplanagem', cultivable_area:'Avaliar cultivo', solar_potential:'Avaliar solar', water_context:'Avaliar água' };
+  const atlasV2EngineLabels = { earthwork:'Terraplanagem', cultivable_area:'Área cultivável', solar_potential:'Potencial solar', water_context:'Contexto hídrico', site_constraints:'Condicionantes' };
+  const atlasV2EngineActions = { earthwork:'Calcular terraplanagem', cultivable_area:'Avaliar cultivo', solar_potential:'Avaliar solar', water_context:'Avaliar água', site_constraints:'Consultar condicionantes' };
   const atlasV2EnginesFor = (type, store) => ((store.typeRegistry[type] || {}).engines || []).filter((engine) => atlasV2EngineActions[engine]).map((engine) => [engine, atlasV2EngineActions[engine]]);
   function atlasV2MetricEntries(result) {
     const metrics = result.metrics || {};
@@ -419,6 +444,7 @@
     if (result.engine_type === 'cultivable_area') return [['Área total', `${metrics.area_total_ha} ha`], ['Cultivável', `${metrics.area_cultivavel_ha} ha`], ['Aproveitamento', `${metrics.percentagem_cultivavel}%`]];
     if (result.engine_type === 'solar_potential') return [['Classificação', metrics.potential], ['Produção específica', `${metrics.specific_yield_kwh_kwp_year} kWh/kWp/ano`]];
     if (result.engine_type === 'water_context') return [['Precipitação', `${metrics.annual_precipitation_mm ?? 'n/d'} mm/ano`], ['Pontos de água', metrics.water_points_nearby]];
+    if (result.engine_type === 'site_constraints') return [['Solo', metrics.soil_classification || 'n/d'], ['Condicionantes', metrics.constraint_count], ['Riscos', metrics.risk_count], ['Confiança', metrics.confidence || 'n/d']];
     return Object.entries(metrics).slice(0, 4);
   }
   function atlasV2FriendlyResultError(result) {
@@ -431,6 +457,13 @@
     message.textContent = text || '';
     message.dataset.kind = kind;
     message.classList.toggle('is-visible', Boolean(text));
+  }
+  function atlasV2SaveFile(file) {
+    const url = URL.createObjectURL(file.blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = file.filename; link.style.display = 'none';
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function atlasV2ApplySidebarState(collapsed) {
     document.body.classList.toggle('sidebar-collapsed', collapsed);
@@ -503,6 +536,61 @@
       document.getElementById('atlas-planning-warning').textContent = warnings.join(' ') || 'Esta proposta é indicativa e deve ser validada por profissionais habilitados.';
     }
   }
+  function atlasV2FormatDecisionValue(entry) {
+    if (Array.isArray(entry.value)) return entry.value.length ? entry.value.join(', ') : 'Nenhuma identificada';
+    if (entry.value == null) return 'n/d';
+    return `${entry.value}${entry.unit ? ` ${entry.unit}` : ''}`;
+  }
+  function atlasV2RenderComparison(store) {
+    const empty = document.getElementById('atlas-compare-empty');
+    const run = document.getElementById('atlas-compare-run');
+    const toggle = document.getElementById('atlas-suitability-toggle');
+    run.disabled = store.scenarios.length < 2 || store.comparison.status === 'loading';
+    run.textContent = store.comparison.status === 'loading' ? 'A comparar…' : 'Comparar todas';
+    toggle.disabled = !store.currentProject || store.terrainSuitability.status === 'loading';
+    toggle.textContent = store.terrainSuitability.status === 'loading' ? 'A analisar relevo…' : store.uiState.suitabilityVisible ? 'Ocultar relevo favorável' : 'Mostrar relevo favorável';
+    empty.style.display = store.scenarios.length < 2 ? 'block' : 'none';
+    const data = store.comparison.data;
+    const list = document.getElementById('atlas-comparison-list');
+    const disclaimer = document.getElementById('atlas-comparison-disclaimer');
+    if (!data) {
+      list.innerHTML = store.scenarios.length >= 2 ? '<div class="empty-state">Escolhe “Comparar todas” para calcular uma leitura atual das alternativas.</div>' : '';
+      disclaimer.style.display = 'none';
+      return;
+    }
+    const titles = { objective:'Adequação ao objetivo', earthwork:'Movimentação de terras', terrain:'Relevo aparente', constraints:'Condicionantes conhecidas' };
+    list.innerHTML = data.scenarios.map((scenario) => {
+      const dimensions = Object.entries(scenario.dimensions).map(([key, dimension]) => {
+        const facts = (dimension.data || []).map((entry) => `<span>${atlasV2Escape(entry.label)}: <strong>${atlasV2Escape(atlasV2FormatDecisionValue(entry))}</strong></span>`).join('');
+        const sources = (dimension.sources || []).map((source) => `<li>${atlasV2Escape(source)}</li>`).join('');
+        const limitations = (dimension.limitations || []).map((item) => `<li>${atlasV2Escape(item)}</li>`).join('');
+        return `<article class="decision-card"><div class="decision-card-head"><i class="decision-signal ${dimension.status}" aria-hidden="true"></i><div class="decision-card-copy"><div class="decision-card-title">${atlasV2Escape(titles[key] || key)}</div><div class="decision-card-label">${atlasV2Escape(dimension.label)}</div></div></div><p class="decision-reason">${atlasV2Escape(dimension.reason)}</p>${facts ? `<div class="decision-data">${facts}</div>` : ''}<details class="decision-detail"><summary>Razões, fontes e próximos passos</summary><strong>Confirmar</strong><div>${atlasV2Escape(dimension.recommended_action)}</div>${sources ? `<strong>Dados utilizados</strong><ul>${sources}</ul>` : ''}${limitations ? `<strong>Limitações</strong><ul>${limitations}</ul>` : ''}</details></article>`;
+      }).join('');
+      const missing = scenario.missing_information.length ? `${scenario.missing_information.length} dimensão(ões) sem dados suficientes.` : 'As quatro dimensões têm dados disponíveis.';
+      return `<section class="comparison-scenario"><div class="comparison-scenario-head"><strong>${atlasV2Escape(scenario.scenario_name)}</strong><span>${scenario.object_count} intervenções · ${atlasV2Escape(missing)}</span></div><div class="decision-dimensions">${dimensions}</div><div class="decision-summary">${scenario.advantages.length ? `<strong>Indicações favoráveis:</strong> ${atlasV2Escape(scenario.advantages.join(' '))}` : 'Sem indicações favoráveis suficientes para resumir.'}</div></section>`;
+    }).join('');
+    disclaimer.textContent = data.disclaimer;
+    disclaimer.style.display = 'block';
+  }
+  function atlasV2RenderSuitability(store) {
+    const visible = Boolean(store.uiState.suitabilityVisible && store.terrainSuitability.data);
+    document.getElementById('atlas-suitability-legend').classList.toggle('is-visible', visible);
+    if (!visible) {
+      if (atlasV2SuitabilityLayer) map.removeLayer(atlasV2SuitabilityLayer);
+      atlasV2SuitabilityLayer = null; atlasV2SuitabilityData = null;
+      return;
+    }
+    const data = store.terrainSuitability.data;
+    document.getElementById('atlas-suitability-meta').textContent = `Célula ${data.summary.cell_size_m} m · apenas declive do MDT · indicação preliminar`;
+    if (atlasV2SuitabilityLayer && atlasV2SuitabilityData === data) return;
+    if (atlasV2SuitabilityLayer) map.removeLayer(atlasV2SuitabilityLayer);
+    const colors = { favorable:'#43a365', attention:'#d7a13d', constrained:'#bd5547' };
+    atlasV2SuitabilityLayer = L.geoJSON(data, {
+      style: (feature) => ({ color:colors[feature.properties.category], fillColor:colors[feature.properties.category], weight:.35, fillOpacity:.28 }),
+      onEachFeature: (feature, layer) => layer.bindPopup(`<strong>${atlasV2Escape(feature.properties.label)}</strong><br>Declive mediano ≈ ${atlasV2Escape(feature.properties.slope_percent)}%<br><small>Apenas triagem pelo MDT; requer validação técnica.</small>`),
+    }).addTo(map);
+    atlasV2SuitabilityData = data;
+  }
   function atlasV2Render() {
     const store = window.projectStore, status = document.getElementById('atlas-v2-status');
     atlasV2Layers.clearLayers();
@@ -524,6 +612,7 @@
     document.getElementById('atlas-proposal-content').style.display = projectReady ? 'block' : 'none';
     document.getElementById('atlas-object-composer').classList.toggle('is-visible', Boolean(store.uiState.objectComposerOpen));
     atlasV2RenderPlanning(store);
+    atlasV2RenderComparison(store);
     document.getElementById('atlas-proposal-title').textContent = scenarioReady ? store.activeScenario.name : 'Projeto base';
     document.getElementById('atlas-object-meta').textContent = `${objects.length} ${objects.length === 1 ? 'intervenção' : 'intervenções'} no mapa`;
     ['atlas-v2-scenario', 'atlas-v2-scenario-open', 'atlas-v2-object'].forEach((id) => { document.getElementById(id).disabled = !projectReady; });
@@ -539,6 +628,7 @@
       : '<div class="task-card"><h4>A proposta está vazia</h4><p>Usa “Adicionar” para desenhar a primeira intervenção no mapa.</p></div>';
     const allResults = Object.values(store.simulationResults).flatMap((results) => Object.values(results));
     document.getElementById('atlas-results-summary').style.display = allResults.length ? 'none' : 'block';
+    document.getElementById('atlas-export-panel').classList.toggle('is-visible', scenarioReady);
     document.getElementById('atlas-results-list').innerHTML = allResults.map((result) => {
       const object = objects.find((item) => item.id === result.scenario_object_id);
       const metrics = atlasV2MetricEntries(result).map(([label, value]) => `<div class="result-metric"><span>${atlasV2Escape(label)}</span><strong>${atlasV2Escape(value)}</strong></div>`).join('');
@@ -546,9 +636,14 @@
       const badgeClass = result.is_stale ? ' is-stale' : failed ? ' is-error' : '';
       const badgeLabel = result.is_stale ? 'Desatualizado' : failed ? 'Não concluído' : partial ? 'Parcial' : 'Atual';
       const content = failed ? `<div class="result-error">${atlasV2Escape(atlasV2FriendlyResultError(result))}</div>` : `<div class="result-metrics">${metrics}</div>`;
-      return `<article class="result-card"><div class="result-card-head"><div class="result-card-title"><strong>${atlasV2Escape(atlasV2EngineLabels[result.engine_type] || result.engine_type)}</strong><span>${atlasV2Escape(object ? object.name : 'Intervenção')} · ${new Date(result.computed_at).toLocaleString('pt-PT')}</span></div><span class="result-badge${badgeClass}">${badgeLabel}</span></div>${content}</article>`;
+      const sources = ((result.metrics || {}).sources || []).map((source) => `<li>${atlasV2Escape(source)}</li>`).join('');
+      const warnings = (result.warnings || []).map((item) => `<li>${atlasV2Escape(item)}</li>`).join('');
+      const limitations = (result.limitations || []).map((item) => `<li>${atlasV2Escape(item)}</li>`).join('');
+      const context = `<details class="result-context"><summary>Fontes, parâmetros e limitações</summary>${sources ? `<strong>Fontes</strong><ul>${sources}</ul>` : ''}${warnings ? `<strong>Warnings</strong><ul>${warnings}</ul>` : ''}${limitations ? `<strong>Limitações</strong><ul>${limitations}</ul>` : ''}<strong>Parâmetros utilizados</strong><div><code>${atlasV2Escape(JSON.stringify(result.parameters_used || {}))}</code></div></details>`;
+      return `<article class="result-card"><div class="result-card-head"><div class="result-card-title"><strong>${atlasV2Escape(atlasV2EngineLabels[result.engine_type] || result.engine_type)}</strong><span>${atlasV2Escape(object ? object.name : 'Intervenção')} · ${new Date(result.computed_at).toLocaleString('pt-PT')}</span></div><span class="result-badge${badgeClass}">${badgeLabel}</span></div>${content}${context}</article>`;
     }).join('');
     if (store.baseParcel) L.geoJSON(store.baseParcel.geometry, { style: { color:'#b5602f', weight:2, fillOpacity:.04, dashArray:'5 4' } }).addTo(atlasV2Layers);
+    atlasV2RenderSuitability(store);
     if (store.uiState.planningAssistantOpen && store.planningProposal.preview) {
       store.planningProposal.preview.objects.forEach((entry) => L.geoJSON(entry.object.geometry, { style: atlasV2MapStyle(entry.object.type, false, true) }).addTo(atlasV2Layers));
     }
@@ -675,6 +770,57 @@
     document.getElementById('sidebar-reopen').onclick = () => store.setUiState({ sidebarCollapsed: false });
     document.getElementById('atlas-context-toggle').onclick = () => store.setUiState({ contextPanelOpen: !store.uiState.contextPanelOpen });
     document.querySelectorAll('[data-atlas-view]').forEach((button) => { button.onclick = () => store.setUiState({ activeWorkspaceView:button.dataset.atlasView }); });
+    document.getElementById('atlas-compare-run').onclick = async () => {
+      if (store.scenarios.length < 2) return atlasV2SetMessage('Cria pelo menos duas alternativas para comparar.', 'info');
+      atlasV2SetMessage('A comparar apenas dados atuais e disponíveis…', 'info');
+      try {
+        await store.compareScenarios(store.scenarios.map((scenario) => scenario.id));
+        store.setUiState({ activeWorkspaceView:'compare' });
+        atlasV2SetMessage('Comparação atualizada. Abre cada dimensão para consultar fontes e limitações.', 'info');
+      } catch (_) { /* ProjectStore exposes the factual backend error. */ }
+    };
+    document.getElementById('atlas-suitability-toggle').onclick = async () => {
+      if (!store.currentProject) return atlasV2SetMessage('Abre primeiro uma área de trabalho.', 'info');
+      if (store.uiState.suitabilityVisible) return store.setUiState({ suitabilityVisible:false });
+      try {
+        if (!store.terrainSuitability.data) await store.loadTerrainSuitability('building');
+        store.setUiState({ suitabilityVisible:true });
+        atlasV2FitBaseParcel();
+        atlasV2SetMessage('Camada de relevo apresentada. Considera apenas o declive do MDT e não substitui estudos técnicos.', 'info');
+      } catch (_) { /* ProjectStore exposes the factual backend error. */ }
+    };
+    document.querySelectorAll('[data-atlas-export-image]').forEach((button) => {
+      button.onclick = async () => {
+        button.disabled = true;
+        atlasV2SetMessage('A preparar a imagem da alternativa…', 'info');
+        try {
+          const view = button.dataset.atlasExportImage;
+          const bounds = map.getBounds();
+          const options = view === '2d' ? { bbox:[bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()] } : {};
+          atlasV2SaveFile(await store.downloadScenarioImage(view, options));
+          atlasV2SetMessage('Imagem preparada. Inclui identificação, legenda, data e caráter preliminar.', 'info');
+        } catch (_) { /* ProjectStore exposes the factual backend error. */ }
+        finally { button.disabled = false; }
+      };
+    });
+    document.getElementById('atlas-report-simple').onclick = async () => {
+      const button = document.getElementById('atlas-report-simple'); button.disabled = true;
+      atlasV2SetMessage('A preparar o relatório simples…', 'info');
+      try {
+        atlasV2SaveFile(await store.downloadScenarioReport('simple'));
+        atlasV2SetMessage('Relatório simples preparado com fontes, limitações e validações recomendadas.', 'info');
+      } catch (_) { /* ProjectStore exposes the factual backend error. */ }
+      finally { button.disabled = false; }
+    };
+    document.getElementById('atlas-report-technical').onclick = async () => {
+      const button = document.getElementById('atlas-report-technical'); button.disabled = true;
+      atlasV2SetMessage('A gerar o relatório técnico pedido…', 'info');
+      try {
+        atlasV2SaveFile(await store.downloadScenarioReport('technical'));
+        atlasV2SetMessage('Relatório técnico preparado. Os resultados desatualizados permanecem identificados.', 'info');
+      } catch (_) { /* ProjectStore exposes the factual backend error. */ }
+      finally { button.disabled = false; }
+    };
     document.getElementById('atlas-proposal-setup').onclick = () => store.setUiState({ contextPanelOpen:true });
     document.getElementById('atlas-object-add').onclick = async () => {
       if (!store.currentProject) return store.setUiState({ contextPanelOpen:true });
@@ -1776,7 +1922,7 @@
       cena3D.fog = new THREE.Fog(0x9fb4bd, 900, 2800);
       const container = document.getElementById('canvas-3d-container');
       camera3D = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
-      renderer3D = new THREE.WebGLRenderer({ antialias: true });
+      renderer3D = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
       renderer3D.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer3D.setSize(container.clientWidth, container.clientHeight);
       renderer3D.outputEncoding = THREE.sRGBEncoding;
@@ -1915,6 +2061,38 @@
   }
 
   document.getElementById('btn-ver-3d').addEventListener('click', abrirVista3D);
+  document.getElementById('btn-exportar-3d').addEventListener('click', async () => {
+    const store = window.projectStore;
+    if (!renderer3D || !cena3D || !camera3D || !store.currentProject || !store.activeScenario) {
+      atlasV2SetMessage('Abre uma alternativa em 3D antes de exportar esta vista.', 'info');
+      return;
+    }
+    const button = document.getElementById('btn-exportar-3d'); button.disabled = true;
+    try {
+      renderer3D.render(cena3D, camera3D);
+      const output = document.createElement('canvas'); output.width = 1600; output.height = 1000;
+      const context = output.getContext('2d');
+      context.fillStyle = '#d9e1df'; context.fillRect(0, 0, output.width, output.height);
+      context.drawImage(renderer3D.domElement, 0, 0, output.width, output.height);
+      context.fillStyle = 'rgba(22,63,53,.94)'; context.fillRect(0, 0, output.width, 105);
+      context.fillStyle = '#fff'; context.font = '700 32px Georgia'; context.fillText(store.currentProject.name, 45, 47);
+      context.font = '500 20px system-ui'; context.fillStyle = '#dbe9e2'; context.fillText(`${store.activeScenario.name} · vista 3D atual`, 45, 79);
+      context.fillStyle = 'rgba(255,255,255,.94)'; context.fillRect(0, 930, output.width, 70);
+      context.fillStyle = '#46564f'; context.font = '16px system-ui';
+      context.fillText('Indicação para estudo preliminar · não substitui levantamento topográfico ou validação profissional.', 45, 967);
+      context.textAlign = 'right'; context.fillText(new Date().toLocaleString('pt-PT'), output.width - 45, 967);
+      const blob = await new Promise((resolve, reject) => output.toBlob((value) => value ? resolve(value) : reject(new Error('Imagem indisponível.')), 'image/png'));
+      const slug = `atlas-${store.currentProject.name}-${store.activeScenario.name}-vista-3d`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const filename = `${slug}.png`;
+      atlasV2SaveFile({ blob, filename });
+      atlasV2SetMessage('Vista 3D atual exportada com identificação, data e aviso preliminar.', 'info');
+    } catch (_) {
+      try {
+        atlasV2SaveFile(await store.downloadScenarioImage('3d'));
+        atlasV2SetMessage('Foi exportada uma vista 3D indicativa da alternativa.', 'info');
+      } catch (_) { /* ProjectStore exposes the factual backend error. */ }
+    } finally { button.disabled = false; }
+  });
 
   let marker = null;
   const panel = document.getElementById('analysis-content');

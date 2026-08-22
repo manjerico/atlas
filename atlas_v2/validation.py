@@ -150,8 +150,23 @@ def validate_parameters(object_type, parameters):
     for name, rule in schema.items():
         if rule.get("required") and name not in parameters:
             raise ValidationError(f"O parâmetro '{name}' é obrigatório.")
-        if name in parameters and rule.get("type") == "number" and (not isinstance(parameters[name], Real) or isinstance(parameters[name], bool)):
+        if name not in parameters:
+            continue
+        value = parameters[name]
+        if rule.get("type") == "number" and (not isinstance(value, Real) or isinstance(value, bool)):
             raise ValidationError(f"O parâmetro '{name}' tem de ser numérico.")
+        if rule.get("type") == "integer" and (
+            not isinstance(value, Real) or isinstance(value, bool) or not float(value).is_integer()
+        ):
+            raise ValidationError(f"O parâmetro '{name}' tem de ser um número inteiro.")
+        if rule.get("type") == "string" and not isinstance(value, str):
+            raise ValidationError(f"O parâmetro '{name}' tem de ser texto.")
+        if "minimum" in rule and value < rule["minimum"]:
+            raise ValidationError(f"O parâmetro '{name}' tem de ser igual ou superior a {rule['minimum']}.")
+        if "maximum" in rule and value > rule["maximum"]:
+            raise ValidationError(f"O parâmetro '{name}' tem de ser igual ou inferior a {rule['maximum']}.")
+        if "enum" in rule and value not in rule["enum"]:
+            raise ValidationError(f"O parâmetro '{name}' não tem um valor permitido.")
 
 
 def validate_project_object(object_type, geometry, parameters, base_parcel_geometry):

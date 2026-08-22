@@ -217,3 +217,121 @@ class TerrainContext:
                 })
             projected_paths.append(projected)
         return {"type": geometry_type, "paths": projected_paths}
+
+    @staticmethod
+    def _point_in_ring(lon, lat, ring):
+        inside = False
+        previous = ring[-1]
+        for current in ring:
+            if ((current[1] > lat) != (previous[1] > lat)):
+                crossing_lon = (previous[0] - current[0]) * (lat - current[1]) / (previous[1] - current[1]) + current[0]
+                if lon < crossing_lon:
+                    inside = not inside
+            previous = current
+        return inside
+
+    def geometry_statistics(self, geometry):
+        """Return factual MDT statistics for one simple polygon."""
+        clip = self.clip_for_geojson(geometry, padding_pixels=2)
+        ring = geometry["coordinates"][0]
+        rows, cols = np.indices(clip.grid.shape)
+        mask = np.zeros(clip.grid.shape, dtype=bool)
+        polygon_pixels = [clip.latlon_para_pixel(point[1], point[0]) for point in ring]
+        previous = polygon_pixels[-1]
+        for current in polygon_pixels:
+            row_a, col_a = current
+            row_b, col_b = previous
+            crossing = ((row_a > rows) != (row_b > rows)) & (
+                cols < (col_b - col_a) * (rows - row_a) / ((row_b - row_a) or 1e-12) + col_a
+            )
+            mask ^= crossing
+            previous = current
+        if not mask.any():
+            raise ValueError("A geometria é demasiado pequena para obter estatísticas do MDT.")
+        dzdy, dzdx = np.gradient(clip.grid, clip.pixel)
+        slope_percent = np.sqrt(dzdx ** 2 + dzdy ** 2) * 100
+        elevations = clip.grid[mask]
+        slopes = slope_percent[mask]
+        return {
+            "elevation_min_m": round(float(elevations.min()), 2),
+            "elevation_max_m": round(float(elevations.max()), 2),
+            "elevation_range_m": round(float(elevations.max() - elevations.min()), 2),
+            "slope_median_percent": round(float(np.median(slopes)), 1),
+            "slope_mean_percent": round(float(slopes.mean()), 1),
+            "slope_max_percent": round(float(slopes.max()), 1),
+            "sample_count": int(mask.sum()),
+            "resolution_m": clip.pixel,
+        }
+
+    def suitability_grid(self, geometry, max_dimension=45):
+        """Return a coarse terrain-only suitability grid for building study."""
+        clip = self.clip_for_geojson(geometry, padding_pixels=0)
+        dzdy, dzdx = np.gradient(clip.grid, clip.pixel)
+        slope_percent = np.sqrt(dzdx ** 2 + dzdy ** 2) * 100
+        height, width = clip.grid.shape
+        reduction = max(1, math.ceil(max(height, width) / max_dimension))
+        cell_size_m = clip.pixel * reduction
+        ring = geometry["coordinates"][0]
+        features = []
+        counts = {"favorable": 0, "attention": 0, "constrained": 0}
+
+        for row in range(reduction // 2, height, reduction):
+            for col in range(reduction // 2, width, reduction):
+                lat, lon = clip.pixel_para_latlon(row, col)
+                if not self._point_in_ring(lon, lat, ring):
+                    continue
+                row_end, col_end = min(height - 1, row + reduction), min(width - 1, col + reduction)
+                block = slope_percent[max(0, row - reduction // 2):row_end, max(0, col - reduction // 2):col_end]
+                slope = float(np.median(block)) if block.size else float(slope_percent[row, col])
+                if slope <= 8:
+                    category, label = "favorable", "Declive mais favorável para estudo"
+                elif slope <= 18:
+                    category, label = "attention", "Declive que requer atenção"
+                else:
+                    category, label = "constrained", "Declive elevado nos dados disponíveis"
+                half = reduction / 2
+                corners_rc = [
+                    (max(0, row - half), max(0, col - half)),
+                    (max(0, row - half), min(width - 1, col + half)),
+                    (min(height - 1, row + half), min(width - 1, col + half)),
+                    (min(height - 1, row + half), max(0, col - half)),
+                ]
+                corners = []
+                for corner_row, corner_col in corners_rc:
+                    corner_lat, corner_lon = clip.pixel_para_latlon(corner_row, corner_col)
+                    corners.append([corner_lon, corner_lat])
+                corners.append(corners[0])
+                counts[category] += 1
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": [corners]},
+                    "properties": {
+                        "category": category,
+                        "label": label,
+                        "slope_percent": round(slope, 1),
+                        "basis": "Declive mediano da célula no MDT disponível",
+                    },
+                })
+
+        cell_area = cell_size_m ** 2
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+            "summary": {
+                "favorable_area_m2": round(counts["favorable"] * cell_area),
+                "attention_area_m2": round(counts["attention"] * cell_area),
+                "constrained_area_m2": round(counts["constrained"] * cell_area),
+                "cell_size_m": cell_size_m,
+                "cells_evaluated": sum(counts.values()),
+            },
+            "source": {
+                "name": "MDT LiDAR disponível no Atlas",
+                "native_resolution_m": clip.pixel,
+                "analysis_cell_m": cell_size_m,
+            },
+            "limitations": [
+                "Esta camada considera apenas o declive aparente do MDT; não avalia geologia, solo, fundações, drenagem, vegetação, acessos ou regras urbanísticas.",
+                "As classes são heurísticas de triagem: até 8%, entre 8% e 18%, e acima de 18%.",
+                "As células de fronteira são aproximações e podem ultrapassar visualmente o limite da parcela.",
+            ],
+        }

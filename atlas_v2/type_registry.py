@@ -20,7 +20,7 @@ TYPE_REGISTRY = {
             "annex": {"label": "Anexo", "width_m": 6, "length_m": 8, "floors": 1, "height_m": 3},
         },
         "render_style": "building",
-        "engines": [],
+        "engines": ["site_constraints"],
         "category": "construction",
         "modifiable_terrain": False,
         "allow_outside_parcel": False,

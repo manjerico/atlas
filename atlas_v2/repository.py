@@ -254,6 +254,22 @@ class ProjectRepository:
             )
         return self.get_scenario_object(scenario_id, object_id)
 
+    def create_scenario_objects(self, scenario_id, objects_data):
+        """Persist one generic object bundle atomically without adding a domain entity."""
+        timestamp = now_iso()
+        object_ids = [item.get("id") or str(uuid4()) for item in objects_data]
+        with self.connection() as connection:
+            for object_id, object_data in zip(object_ids, objects_data):
+                connection.execute(
+                    "INSERT INTO scenario_objects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        object_id, scenario_id, None, object_data["type"], object_data["name"],
+                        json.dumps(object_data["geometry"]), json.dumps(object_data["parameters"]),
+                        1, timestamp, timestamp,
+                    ),
+                )
+        return [self.get_scenario_object(scenario_id, object_id) for object_id in object_ids]
+
     def delete_scenario_object(self, scenario_id, scenario_object_id):
         with self.connection() as connection:
             return connection.execute("DELETE FROM scenario_objects WHERE scenario_id = ? AND id = ?", (scenario_id, scenario_object_id)).rowcount > 0

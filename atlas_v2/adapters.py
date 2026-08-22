@@ -3,6 +3,8 @@
 import motor_terraplanagem
 import motor_agricultura
 import motor_hidrico
+import motor_juridico
+import motor_ambiental
 import motor_solar
 
 from .validation import ValidationError, validate_geometry, validate_parameters
@@ -175,9 +177,76 @@ class WaterContextAdapter:
         }
 
 
+class SiteConstraintsAdapter:
+    """Normalize existing municipal legal/environmental point checks for one building."""
+
+    engine_type = "site_constraints"
+    requires_terrain = False
+
+    def validate_input(self, scenario_object, parameters):
+        if scenario_object["type"] != "building":
+            raise ValidationError("A consulta de condicionantes requer um objeto do tipo building.")
+        validate_geometry(scenario_object["geometry"], ["Polygon"])
+        validate_parameters(scenario_object["type"], parameters)
+
+    def execute(self, terrain_context, scenario_object, parameters):
+        lat, lon = polygon_centroid(scenario_object["geometry"])
+        return {
+            "legal": motor_juridico.montar_conclusao(lat, lon),
+            "environmental": motor_ambiental.montar_conclusao(lat, lon),
+        }
+
+    @staticmethod
+    def from_motor_output(output, scenario_object, parameters):
+        legal, environmental = output["legal"], output["environmental"]
+        legal_answer = legal.get("answer") or {}
+        environmental_answer = environmental.get("answer") or {}
+        constraints = [
+            value for value in legal_answer.get("condicionantes_ativas", [])
+            if value not in ("Nenhuma identificada", "Nenhuma identificada nas camadas consultadas")
+        ]
+        risks = [
+            value for value in legal_answer.get("riscos_identificados", [])
+            if value not in ("Nenhum identificado", "Nenhum identificado nas camadas consultadas")
+        ]
+        confidence = (legal.get("confidence") or {}).get("label", "Baixa")
+        fire_risk = environmental_answer.get("classe_risco_incendio")
+        incomplete = confidence == "Baixa" or fire_risk in (None, "Não determinada")
+        sources = list(dict.fromkeys((legal.get("sources") or []) + (environmental.get("sources") or [])))
+        warnings = []
+        if incomplete:
+            warnings.append("Uma ou mais camadas não devolveram informação suficiente para esta localização.")
+        return {
+            "parameters_used": parameters,
+            "status": "partial" if incomplete else "success",
+            "metrics": {
+                "soil_classification": legal_answer.get("classificacao_solo"),
+                "active_constraints": constraints,
+                "identified_risks": risks,
+                "constraint_count": len(constraints),
+                "risk_count": len(risks),
+                "fire_risk_class": fire_risk,
+                "historical_fire": environmental_answer.get("ja_ardeu_historicamente"),
+                "nearest_road_distance_m": environmental_answer.get("distancia_estrada_mais_proxima_m"),
+                "fuel_management_strip": environmental_answer.get("faixa_gestao_combustivel"),
+                "confidence": confidence,
+                "sources": sources,
+                "source_generated_at": [legal.get("generated_at"), environmental.get("generated_at")],
+            },
+            "derived_geometries": [{"type": "Feature", "geometry": scenario_object["geometry"], "properties": {"role": "site_constraints_point_check"}}],
+            "warnings": warnings,
+            "errors": [],
+            "limitations": list(dict.fromkeys((legal.get("limitations") or []) + (environmental.get("limitations") or []) + [
+                "A consulta é pontual no centro da implantação e pode não representar variações dentro de toda a parcela ou edifício.",
+                "A presença ou ausência numa camada cartográfica não constitui decisão jurídica, licenciamento ou garantia de segurança.",
+            ])),
+        }
+
+
 ADAPTERS = {
     EarthworkAdapter.engine_type: EarthworkAdapter(),
     CultivableAreaAdapter.engine_type: CultivableAreaAdapter(),
     SolarPotentialAdapter.engine_type: SolarPotentialAdapter(),
     WaterContextAdapter.engine_type: WaterContextAdapter(),
+    SiteConstraintsAdapter.engine_type: SiteConstraintsAdapter(),
 }
