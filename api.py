@@ -1,11 +1,13 @@
 """Flask routes for the Phase 1 V2 workspace API."""
 
 from time import perf_counter
+from uuid import uuid4
 
 from flask import Blueprint, current_app, jsonify, request
 
 from .repository import ProjectRepository
 from .adapters import ADAPTERS
+from .planning import building_proposal
 from .terrain import TerrainContext
 from .type_registry import TYPE_REGISTRY
 from .validation import ValidationError, validate_geometry, validate_project_object
@@ -245,6 +247,82 @@ def terrain_context(project):
     return contexts[project["id"]]
 
 
+def validated_building_proposal(project, data, proposal_ref):
+    proposal = building_proposal(project["base_parcel"]["geometry"], data, proposal_ref)
+    warnings = list(proposal["warnings"])
+    for entry in proposal["objects"]:
+        payload, object_warnings = object_payload(project, entry["object"])
+        entry["object"] = payload
+        warnings.extend(object_warnings)
+    proposal["warnings"] = list(dict.fromkeys(warnings))
+    return proposal
+
+
+@api.post("/projects/<project_id>/planning/building-preview")
+def preview_building_proposal(project_id):
+    project = project_or_404(project_id)
+    if not project:
+        return error("Projeto não encontrado.", 404)
+    try:
+        proposal = validated_building_proposal(project, request.get_json(silent=True) or {}, str(uuid4()))
+        return jsonify(proposal)
+    except ValidationError as exc:
+        return error(str(exc))
+
+
+@api.post("/projects/<project_id>/scenarios/<scenario_id>/planning/building-proposal")
+def create_building_proposal(project_id, scenario_id):
+    project = project_or_404(project_id)
+    if not project:
+        return error("Projeto não encontrado.", 404)
+    if not repository().get_scenario(project_id, scenario_id):
+        return error("Cenário não encontrado.", 404)
+
+    try:
+        proposal = validated_building_proposal(project, request.get_json(silent=True) or {}, str(uuid4()))
+        building_id = str(uuid4())
+        objects_data = []
+        roles = []
+        earthwork_normalized = None
+        earthwork_ms = None
+        for entry in proposal["objects"]:
+            payload = entry["object"]
+            payload["id"] = building_id if entry["role"] == "building" else str(uuid4())
+            if entry["role"] != "building":
+                payload["parameters"] = {**payload["parameters"], "building_object_id": building_id}
+                payload, object_warnings = object_payload(project, payload)
+                proposal["warnings"].extend(object_warnings)
+                payload["id"] = entry["object"]["id"]
+            if entry["role"] == "platform":
+                adapter = ADAPTERS["earthwork"]
+                adapter.validate_input(payload, payload["parameters"])
+                started = perf_counter()
+                raw_output = adapter.execute(terrain_context(project), payload, payload["parameters"])
+                earthwork_normalized = adapter.from_motor_output(raw_output, payload, payload["parameters"])
+                earthwork_ms = round((perf_counter() - started) * 1000)
+            objects_data.append(payload)
+            roles.append(entry["role"])
+
+        stored_objects = repository().create_scenario_objects(scenario_id, objects_data)
+        role_objects = [{"role": role, "object": stored} for role, stored in zip(roles, stored_objects)]
+        result = None
+        if earthwork_normalized:
+            platform = next(item["object"] for item in role_objects if item["role"] == "platform")
+            earthwork_normalized["computation_time_ms"] = earthwork_ms
+            result = repository().replace_simulation_result(
+                scenario_id, platform["id"], "earthwork", earthwork_normalized
+            )
+            result["is_stale"] = False
+        return jsonify({
+            **proposal,
+            "objects": role_objects,
+            "earthwork_result": result,
+            "warnings": list(dict.fromkeys(proposal["warnings"])),
+        }), 201
+    except (ValidationError, ValueError, FileNotFoundError) as exc:
+        return error(str(exc))
+
+
 @api.get("/projects/<project_id>/terrain/mesh")
 def get_project_terrain_mesh(project_id):
     """Return a bounded 3D mesh and projected workspace overlays."""
@@ -277,6 +355,7 @@ def get_project_terrain_mesh(project_id):
             "id": item["id"],
             "type": item["type"],
             "name": item["name"],
+            "parameters": item["parameters"],
             "geometry": context.project_geojson(item["geometry"], clip),
         } for item in objects)
         mesh.update({
